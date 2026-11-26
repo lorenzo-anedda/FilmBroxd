@@ -1,0 +1,49 @@
+FILMBROXD - VERSIONE LOCALE
+===========================
+Funziona sul tuo PC Ubuntu, senza token di Claude. I dati (watchlist, visti,
+cronologia, profilo) sono già dentro il file e restano nel browser.
+
+1) INSTALLA OLLAMA (una volta sola)
+   curl -fsSL https://ollama.com/install.sh | sh
+   ollama pull qwen2.5:7b
+   (circa 4,7 GB, serve circa 8 GB di RAM libera. Con meno RAM usa
+    "ollama pull qwen2.5:3b" e scrivi qwen2.5:3b nelle impostazioni dell'app.)
+
+2) AVVIA L'APP
+   chmod +x avvia.sh      (solo la prima volta)
+   ./avvia.sh
+   Si apre http://localhost:8000/filmbroxd.html
+   Usa sempre questo indirizzo: i dati sono legati a indirizzo e porta.
+   Per chiudere: Ctrl+C nel terminale.
+
+3) CONTROLLA L'AI
+   Nell'app: icona 🎞️ → "Impostazioni AI" → "Prova connessione".
+   Deve rispondere "Funziona".
+
+SE LA PROVA NON FUNZIONA
+- "non riesco a contattare l'AI": Ollama non è acceso. Prova "ollama serve"
+  in un altro terminale.
+- "modello non scaricato": esegui il comando "ollama pull ..." indicato.
+
+SE IL PC È LENTO (senza scheda grafica dedicata)
+- Ogni richiesta può richiedere da 1 a 4 minuti con qwen2.5:7b. Se è troppo,
+  usa "ollama pull qwen2.5:3b" e scrivi qwen2.5:3b nelle impostazioni: è circa
+  due volte più veloce, ma conosce meno cinema.
+- Non usare modelli da 14b o più: non stanno comodi in 16 GB di RAM.
+
+SENZA AI, O CON UNA CHIAVE GRATUITA
+- Nessuna AI: i 5 film sono scelti con un punteggio locale (epoca che ami,
+  mood, scarti recenti). Il +1 non è disponibile.
+- Gemini, Groq o OpenRouter: scegli il servizio, incolla la chiave gratuita
+  e premi "Prova connessione". Hanno limiti giornalieri.
+- Se l'AI non risponde, l'app ripiega da sola sul punteggio locale.
+
+BACKUP
+   🎞️ → "Esporta dati" salva un file .json; "Importa dati" lo ricarica.
+   Fallo ogni tanto: se cancelli i dati del browser, li perdi.
+
+LIMITI
+- I modelli piccoli conoscono meno il cinema di nicchia: il +1 può essere
+  meno azzeccato o sbagliare un titolo. I film già visti sono comunque
+  scartati in automatico.
+- Niente sincronizzazione tra dispositivi: i dati sono in questo browser.

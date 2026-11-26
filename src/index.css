@@ -1,0 +1,138 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Outfit", system-ui, -apple-system, sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
+}
+
+/* Projector logo animations (compositor-only: transform + opacity) */
+@keyframes projector-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes projector-beam {
+  0%, 100% {
+    opacity: 0.28;
+    transform: scaleX(0.96);
+  }
+  50% {
+    opacity: 0.52;
+    transform: scaleX(1.03);
+  }
+}
+
+.projector-reel-slow {
+  animation: projector-spin 7s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.projector-reel-fast {
+  animation: projector-spin 5s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.group:hover .projector-reel-slow {
+  animation-duration: 2.8s;
+}
+
+.group:hover .projector-reel-fast {
+  animation-duration: 2s;
+}
+
+.projector-beam-anim {
+  animation: projector-beam 3.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .projector-reel-slow,
+  .projector-reel-fast,
+  .projector-beam-anim {
+    animation: none;
+  }
+}
+
+/* Dual range slider tracks and accessible thumbs */
+.dual-range-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.dual-range-input::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 36px;
+}
+
+.dual-range-input::-moz-range-track {
+  background: transparent;
+}
+
+.dual-range-input::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 8px;
+  border-radius: 9999px;
+  background: #2563EB;
+  border: 3px solid #F5F7FA;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dual-range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.dark .dual-range-input::-webkit-slider-thumb {
+  background: #3B82F6;
+  border-color: #0B0E14;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45);
+}
+
+.dual-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #2563EB;
+  border: 3px solid #F5F7FA;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+  cursor: pointer;
+}
+
+.dark .dual-range-input::-moz-range-thumb {
+  background: #3B82F6;
+  border-color: #0B0E14;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45);
+}
