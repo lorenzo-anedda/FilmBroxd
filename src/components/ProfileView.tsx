@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   canonicalLabel,
   filmKey,
@@ -6,7 +6,9 @@ import {
   nz,
   parseJsonSafely,
 } from "../utils/filmLogic";
+import { computeProfileStats } from "../utils/profileStats";
 import { formatAIError, generateWithAI } from "../utils/aiClient";
+import { ProfileStats } from "./ProfileStats";
 import type { FilmItem, FilmMeta, LibraryState, SeenFilmItem } from "../types";
 
 interface ProfileViewProps {
@@ -17,6 +19,24 @@ interface ProfileViewProps {
   onUpdateProfile: (profile: string) => void;
   onMergeMeta: (updates: Record<string, FilmMeta>) => void;
   onClearWhy: () => void;
+}
+
+function cleanPeopleValue(val: unknown): string {
+  if (Array.isArray(val)) {
+    return val
+      .map((item) => String(item || "").trim())
+      .filter((item) => item.length > 1 && item.toLowerCase() !== "null")
+      .slice(0, 3)
+      .join(" / ");
+  }
+  const s = String(val || "").trim();
+  if (!s || s.toLowerCase() === "null") return "";
+  return s
+    .split(/[\/,]/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 1 && p.toLowerCase() !== "null")
+    .slice(0, 3)
+    .join(" / ");
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -30,7 +50,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 }) => {
   const [busyProfile, setBusyProfile] = useState(false);
   const [busyEnrich, setBusyEnrich] = useState(false);
+  const [busyPeople, setBusyPeople] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [peopleProgress, setPeopleProgress] = useState("");
+  const stopPeopleRef = useRef(false);
+
+  const allSeen = useMemo(
+    () => getAllSeen(seen, lib.marks),
+    [seen, lib.marks]
+  );
 
   const fullWatch = useMemo(
     () => watch.concat(lib.add || []),
@@ -52,7 +80,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   );
 
   const handleGenerateProfile = async () => {
-    const allSeen = getAllSeen(seen, lib.marks);
     const rated = allSeen
       .filter((x) => x.r != null)
       .sort((a, b) => (b.r || 0) - (a.r || 0));
@@ -113,17 +140,29 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
         for (const o of arr) {
           const x = batch[o.i];
           if (x) {
-            updates[filmKey(x)] = {
+            const k = filmKey(x);
+            const prev = lib.meta[k];
+            updates[k] = {
               g: o.g && o.g !== "null" ? o.g : "",
               m: Number(o.m) || 0,
               d: o.d && o.d !== "null" ? o.d : "",
               c: o.c && o.c !== "null" ? o.c : "",
+              ...(prev?.a ? { a: prev.a } : {}),
             };
           }
         }
         for (const x of batch) {
           const k = filmKey(x);
-          if (!updates[k]) updates[k] = { g: "", m: 0, d: "", c: "" };
+          if (!updates[k]) {
+            const prev = lib.meta[k];
+            updates[k] = {
+              g: "",
+              m: 0,
+              d: "",
+              c: "",
+              ...(prev?.a ? { a: prev.a } : {}),
+            };
+          }
         }
         onMergeMeta(updates);
         done += batch.length;
@@ -138,8 +177,99 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
     }
   };
 
+  const handleEnrichSeenPeople = async () => {
+    const queue = computeProfileStats(allSeen, lib.meta).missingPeopleFilms;
+    if (!queue.length) {
+      setPeopleProgress("Tutti i film visti hanno già regista e cast.");
+      return;
+    }
+
+    stopPeopleRef.current = false;
+    setBusyPeople(true);
+    let processed = 0;
+
+    try {
+      for (let i = 0; i < queue.length; i += 45) {
+        if (stopPeopleRef.current) {
+          setPeopleProgress(
+            `Analisi in pausa (${processed}/${queue.length} elaborati in questa sessione). Puoi riprendere quando vuoi.`
+          );
+          break;
+        }
+
+        const batch = queue.slice(i, i + 45);
+        setPeopleProgress(
+          `Analizzo registi e attori… ${processed}/${queue.length} film mancanti`
+        );
+
+        const prompt =
+          `Per ciascun film indica regista ("d") e i 3 attori principali separati da " / " ("a"). Usa i nomi originali più noti. Se non conosci un campo con certezza usa null: non inventare mai.\nRispondi SOLO con un array JSON: [{"i":0,"d":"Regista","a":"Attore 1 / Attore 2 / Attore 3"}]\n\n` +
+          batch.map((x, j) => `${j}. ${canonicalLabel(x)}`).join("\n");
+
+        const raw = await generateWithAI(prompt, {
+          jsonMode: "array",
+          fast: true,
+        });
+
+        const arr = parseJsonSafely<
+          Array<{ i: number; d?: unknown; a?: unknown }>
+        >(raw, "[");
+
+        const updates: Record<string, FilmMeta> = {};
+        for (const o of arr) {
+          const film = batch[o.i];
+          if (!film) continue;
+          const k = filmKey(film);
+          const prev = lib.meta[k] || { g: "", m: 0, d: "", c: "" };
+          const dir = nz(prev.d) ? prev.d : cleanPeopleValue(o.d);
+          const act = nz(prev.a) ? prev.a || "" : cleanPeopleValue(o.a);
+          updates[k] = {
+            g: prev.g || "",
+            m: prev.m || 0,
+            d: dir,
+            c: prev.c || "",
+            ...(act ? { a: act } : {}),
+          };
+        }
+
+        if (Object.keys(updates).length > 0) {
+          onMergeMeta(updates);
+        }
+
+        processed += batch.length;
+      }
+
+      if (!stopPeopleRef.current) {
+        setPeopleProgress(
+          `Completato: elaborati ${processed} film visti.`
+        );
+      }
+    } catch (err) {
+      setPeopleProgress(
+        `${formatAIError(err)} (${processed}/${queue.length} elaborati finora, puoi riprendere)`
+      );
+    } finally {
+      setBusyPeople(false);
+    }
+  };
+
+  const handleStopEnrichPeople = () => {
+    stopPeopleRef.current = true;
+    setPeopleProgress("Arresto al termine del blocco corrente…");
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-8">
+      <ProfileStats
+        allSeen={allSeen}
+        meta={lib.meta}
+        aiAvailable={aiAvailable}
+        busyPeople={busyPeople}
+        peopleProgress={peopleProgress}
+        onEnrichPeople={handleEnrichSeenPeople}
+        onStopEnrichPeople={handleStopEnrichPeople}
+      />
+
       <section className="rounded-2xl border border-slate-200/90 bg-white p-6 dark:border-slate-800 dark:bg-[#131722]">
         <div className="mb-4 border-b border-slate-200/80 pb-3 dark:border-slate-800">
           <h2 className="font-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">

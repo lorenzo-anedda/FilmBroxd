@@ -93,6 +93,7 @@ export function loadInitialLibraryState(): LibraryState {
       m: c.m || f[1] || 0,
       d: bad(c.d) ? f[2] : c.d,
       c: bad(c.c) ? f[3] : c.c,
+      ...(c.a ? { a: c.a } : {}),
     };
   }
   for (const k of purgeSet) {
@@ -103,7 +104,14 @@ export function loadInitialLibraryState(): LibraryState {
   }
   for (const k in OVR_META) {
     const f = OVR_META[k];
-    lib.meta[k] = { g: f[0], m: f[1], d: f[2], c: f[3] };
+    const prevA = lib.meta[k]?.a;
+    lib.meta[k] = {
+      g: f[0],
+      m: f[1],
+      d: f[2],
+      c: f[3],
+      ...(prevA ? { a: prevA } : {}),
+    };
   }
   const birdKey = "the bird with the crystal plumage|1970";
   if (!lib.marks[birdKey]) {

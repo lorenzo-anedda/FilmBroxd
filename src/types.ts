@@ -15,6 +15,7 @@ export interface FilmMeta {
   m: number; // Durata in minuti
   d: string; // Regista
   c: string; // Paese in italiano
+  a?: string; // Attori principali separati da /
 }
 
 export interface FilmMark {

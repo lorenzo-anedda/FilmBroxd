@@ -30,6 +30,7 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │   │   ├── filmHelpers.ts            # Normalizzazione titoli, storico e filtri
 │   │   ├── recommender.ts            # Motore di punteggio locale e builder dei prompt AI
 │   │   ├── parsers.ts                # Parser JSON tollerante e import CSV/TXT
+│   │   ├── profileStats.ts           # Calcolo statistiche su voti, decenni, registi e attori
 │   │   ├── storage.ts                # Persistenza e migrazione su localStorage
 │   │   └── filmLogic.ts              # Barrel di compatibilità verso i moduli utils
 │   └── components/
@@ -41,6 +42,7 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │       ├── FilmPreviewModal.tsx      # Modale anteprima ingrandita + link Letterboxd/Wiki
 │       ├── PendingQueue.tsx          # Promemoria film scelti nelle serate precedenti
 │       ├── HistoryView.tsx           # Cronologia, da vedere e scartati
+│       ├── ProfileStats.tsx          # Grafici statistiche su voti, decenni, registi e attori
 │       ├── ProfileView.tsx           # Profilo gusti e arricchimento metadati
 │       └── ArchiveView.tsx           # Import/export Letterboxd CSV e backup JSON
 ├── index.html
