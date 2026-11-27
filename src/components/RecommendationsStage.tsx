@@ -23,6 +23,7 @@ interface RecommendationsStageProps {
   avgRating: number;
   profile: string;
   onOpenProfile: () => void;
+  onOpenArchive: () => void;
   aiEnabled: boolean;
   previews: Record<string, FilmPreviewData>;
   onRequestPreview: (pick: ActivePick) => void;
@@ -52,6 +53,7 @@ export const RecommendationsStage: React.FC<RecommendationsStageProps> = ({
   avgRating,
   profile,
   onOpenProfile,
+  onOpenArchive,
   aiEnabled,
   previews,
   onRequestPreview,
@@ -112,14 +114,29 @@ export const RecommendationsStage: React.FC<RecommendationsStageProps> = ({
       {!loading && picks.length === 0 && (
         <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 dark:border-slate-800 dark:bg-[#131722]">
           <span className="font-mono text-xs uppercase tracking-wider text-[#2563EB] dark:text-[#60A5FA]">
-            Archivio pronto
+            {watchlistCount === 0 ? "Nessuna lista caricata" : "Archivio pronto"}
           </span>
           <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
-            Scegli il mood per iniziare la serata
+            {watchlistCount === 0
+              ? "Carica la tua watchlist Letterboxd"
+              : "Scegli il mood per iniziare la serata"}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            Imposta come ti senti adesso o aggiungi dei filtri su durata, genere ed epoca. Verranno proposti 5 titoli dalla tua watchlist e 1 fuori lista calibrato sul tuo gusto.
+            {watchlistCount === 0
+              ? "La watchlist è attualmente vuota. Vai in Archivio per caricare il tuo watchlist.csv (e facoltativamente watched.csv e ratings.csv) esportato da Letterboxd."
+              : "Imposta come ti senti adesso o aggiungi dei filtri su durata, genere ed epoca. Verranno proposti 5 titoli dalla tua watchlist e 1 fuori lista calibrato sul tuo gusto."}
           </p>
+          {watchlistCount === 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={onOpenArchive}
+                className="rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] dark:bg-[#3B82F6] dark:hover:bg-[#2563EB]"
+              >
+                Carica i tuoi CSV in Archivio
+              </button>
+            </div>
+          )}
 
           <div className="mt-6 grid grid-cols-3 gap-4 border-y border-slate-200/80 py-4 dark:border-slate-800">
             <div>

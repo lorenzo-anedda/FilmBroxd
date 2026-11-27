@@ -87,7 +87,35 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
    npm start
    ```
 
+## Usare i propri dati Letterboxd (al posto della libreria precaricata)
+
+Il repository include una libreria precaricata di partenza in `src/data/embeddedLibrary.ts` (watchlist, film visti, cronologia e profilo gusti d'esempio, più un catalogo condiviso di metadati sui film) così l'app è subito utilizzabile appena avviata.
+
+Chi scarica o clona il progetto può sostituirla completamente con i propri dati personali in pochi secondi, senza toccare il codice:
+
+1. **Esporta i tuoi CSV da Letterboxd**:
+   - Accedi a Letterboxd → **Settings → Import & Export → Export Your Data** e scarica l'archivio `.zip`.
+   - I file principali usati dall'app sono:
+     - `watchlist.csv` (la tua watchlist)
+     - `watched.csv` e `ratings.csv` (i tuoi film visti e i voti a mezze stelle; opzionale anche `diary.csv`)
+
+2. **Riparti da zero o importa direttamente in `Archivio`**:
+   - Apri la scheda **Archivio** nell'header dell'app.
+   - Se vuoi prima azzerare tutto, clicca **Svuota tutto (riparti da zero)** per cancellare watchlist, film visti, voti, cronologia e profilo precaricati (viene conservata solo la cache pubblica di metadati/durate/generi dei film).
+   - Carica `watchlist.csv` nel riquadro **Watchlist** e seleziona `watched.csv` + `ratings.csv` nel riquadro **Film visti e voti** (puoi selezionarli anche **insieme** in un solo caricamento o uno dopo l'altro: l'app fonde automaticamente i voti sui film visti senza perdere quelli senza voto).
+   - Al primo import di un tuo CSV dalla libreria precaricata, l'app sostituisce automaticamente anche eventuali dati personali precaricati rimasti (profilo gusti, cronologia e lista opposta non ancora importata) e passa in modalità **Libreria personale attiva** (salvata nel `localStorage` del browser).
+
+3. **Rigenera il tuo profilo e arricchisci i metadati**:
+   - Vai nella scheda **Profilo** per vedere subito le statistiche su voti e decenni dai tuoi CSV, rigenerare il tuo profilo gusti personale con Gemini e avviare l'arricchimento di registi, attori, durate e generi.
+   - Se vuoi tornare in qualsiasi momento ai dati dimostrativi originali, in **Archivio** trovi il pulsante **Ripristina libreria precaricata**.
+
+## Funzionalità principali
+
+- **Cosa guardiamo stasera**: scegli mood, compagnia, durata, generi, paesi, decenni e livello di rischio per ottenere 5 proposte dalla watchlist + 1 consiglio extra calibrato sul tuo gusto.
+- **ReelRouette**: torneo a eliminazione diretta (8 film dai Quarti o 16 film dagli Ottavi) per decidere cosa guardare sfidando due titoli alla volta con locandine e scelta rapida da tastiera (`←`/`1`, `→`/`2`).
+- **Profilo**: statistiche visive su media voti, distribuzione mezze stelle, decenni preferiti, registi e attori più visti/amati, più sintesi testuale dei gusti.
+- **Cronologia & Archivio**: tracciamento delle serate precedenti, export/import backup completo `.json` e gestione CSV Letterboxd.
+
 ## Licenza
 
 Distribuito con licenza [MIT](LICENSE).
-

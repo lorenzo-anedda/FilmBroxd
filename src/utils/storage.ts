@@ -63,11 +63,13 @@ export function loadInitialLibraryState(): LibraryState {
     ts: SEED.ts || Date.now(),
   };
 
+  let hasStoredLib = false;
   try {
     const raw = localStorage.getItem(STORAGE_LIB_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed) {
+        hasStoredLib = true;
         lib = {
           meta: parsed.meta || lib.meta,
           marks: parsed.marks || lib.marks,
@@ -114,7 +116,7 @@ export function loadInitialLibraryState(): LibraryState {
     };
   }
   const birdKey = "the bird with the crystal plumage|1970";
-  if (!lib.marks[birdKey]) {
+  if (!hasStoredLib && !lib.marks[birdKey]) {
     lib.marks[birdKey] = {
       s: "seen",
       t: "The Bird with the Crystal Plumage",

@@ -1054,6 +1054,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
               avgRating={avgRating}
               profile={lib.profile}
               onOpenProfile={() => setTab("profilo")}
+              onOpenArchive={() => setTab("archivio")}
               aiEnabled={aiAvailable && engineMode === "ai"}
               previews={previews}
               onRequestPreview={requestPreview}
@@ -1144,24 +1145,78 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
           <ArchiveView
             data={data}
             lib={lib}
-            onImportWatchlist={(films: FilmItem[]) =>
+            onImportWatchlist={(films: FilmItem[]) => {
+              const switchingFromSeed = !data.custom;
               updateData((prev) => ({
-                ...prev,
                 watch: films,
+                seen: switchingFromSeed ? [] : prev.seen,
                 shown: [],
+                shownX: [],
                 custom: true,
-              }))
-            }
-            onImportSeen={(films: SeenFilmItem[]) =>
+              }));
+              if (switchingFromSeed) {
+                updateLib((prev) => ({
+                  meta: prev.meta,
+                  marks: {},
+                  profile: "",
+                  partner: "",
+                  hist: [],
+                  add: [],
+                  why: [],
+                  ts: Date.now(),
+                }));
+              }
+              setPicks([]);
+            }}
+            onImportSeen={(films: SeenFilmItem[]) => {
+              const switchingFromSeed = !data.custom;
               updateData((prev) => ({
-                ...prev,
+                watch: switchingFromSeed ? [] : prev.watch,
                 seen: films,
+                shown: switchingFromSeed ? [] : prev.shown,
+                shownX: switchingFromSeed ? [] : prev.shownX,
                 custom: true,
-              }))
-            }
+              }));
+              if (switchingFromSeed) {
+                updateLib((prev) => ({
+                  meta: prev.meta,
+                  marks: {},
+                  profile: "",
+                  partner: "",
+                  hist: [],
+                  add: [],
+                  why: [],
+                  ts: Date.now(),
+                }));
+              }
+            }}
+            onClearToEmptyUser={() => {
+              const emptyData: WatchlistDataState = {
+                watch: [],
+                seen: [],
+                shown: [],
+                shownX: [],
+                custom: true,
+              };
+              persistDataState(emptyData);
+              setData(emptyData);
+              updateLib((prev) => ({
+                meta: prev.meta,
+                marks: {},
+                profile: "",
+                partner: "",
+                hist: [],
+                add: [],
+                why: [],
+                ts: Date.now(),
+              }));
+              setPicks([]);
+            }}
             onResetOriginal={() => {
               localStorage.removeItem("wl_v1");
+              localStorage.removeItem("wl_v2");
               setData(loadInitialDataState());
+              setLib(loadInitialLibraryState());
               setPicks([]);
             }}
             onImportBackup={(payload) => {

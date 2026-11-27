@@ -1,4 +1,11 @@
-import { filmKey } from "./filmHelpers";
+import { DECADE_FILTERS, GENRE_FILTERS } from "../constants/filters";
+import {
+  displayTitle,
+  filmKey,
+  isHistoryBlocked,
+  matchesDecade,
+  nz,
+} from "./filmHelpers";
 import { shortlistPool } from "./recommender";
 import type { FilmItem, LibraryState, SeenFilmItem } from "../types";
 
@@ -8,6 +15,14 @@ export type TournamentSource =
   | "seen_cult";
 
 export type BracketSize = 8 | 16;
+
+export interface TournamentFilterOptions {
+  genres: Set<string>;
+  decades: Set<string>;
+  maxMinutes: number;
+  searchQuery: string;
+  excludeBlocked: boolean;
+}
 
 export interface BracketMatch {
   id: string;
@@ -44,9 +59,9 @@ function shuffleArray<T>(items: T[]): T[] {
   return arr;
 }
 
-function dedupeFilms(items: FilmItem[]): FilmItem[] {
+function dedupeFilms<T extends FilmItem>(items: T[]): T[] {
   const seen = new Set<string>();
-  const out: FilmItem[] = [];
+  const out: T[] = [];
   for (const item of items) {
     const k = filmKey(item);
     if (!seen.has(k)) {
@@ -57,20 +72,89 @@ function dedupeFilms(items: FilmItem[]): FilmItem[] {
   return out;
 }
 
+export function hasTournamentFilters(filters: TournamentFilterOptions): boolean {
+  return Boolean(
+    filters.genres.size > 0 ||
+      filters.decades.size > 0 ||
+      filters.maxMinutes > 0 ||
+      filters.searchQuery.trim().length > 0
+  );
+}
+
+export function filterTournamentPool(
+  source: TournamentSource,
+  watchlistPool: FilmItem[],
+  allSeen: SeenFilmItem[],
+  lib: LibraryState,
+  filters: TournamentFilterOptions
+): FilmItem[] {
+  const basePool: FilmItem[] =
+    source === "seen_cult"
+      ? dedupeFilms(allSeen)
+      : dedupeFilms(
+          watchlistPool.filter((x) => {
+            const k = filmKey(x);
+            if (lib.marks[k]) return false;
+            if (filters.excludeBlocked && isHistoryBlocked(k, lib.hist)) {
+              return false;
+            }
+            return true;
+          })
+        );
+
+  const query = filters.searchQuery.trim().toLowerCase();
+
+  return basePool.filter((film) => {
+    const k = filmKey(film);
+    const meta = lib.meta[k];
+
+    if (filters.decades.size > 0) {
+      if (!film.y || !matchesDecade(film, filters.decades)) return false;
+    }
+
+    if (filters.genres.size > 0) {
+      if (!meta || !nz(meta.g)) return false;
+      const genreMatches = [...filters.genres].some((code) => {
+        const gf = GENRE_FILTERS.find((g) => g.value === code);
+        return gf ? gf.regex.test(meta.g) : false;
+      });
+      if (!genreMatches) return false;
+    }
+
+    if (filters.maxMinutes > 0) {
+      if (!meta || !meta.m || meta.m > filters.maxMinutes) return false;
+    }
+
+    if (query) {
+      const title = displayTitle(film).toLowerCase();
+      const orig = film.t.toLowerCase();
+      const dir = meta && nz(meta.d) ? meta.d.toLowerCase() : "";
+      if (
+        !title.includes(query) &&
+        !orig.includes(query) &&
+        !dir.includes(query)
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
 export function pickContenders(
   source: TournamentSource,
   count: BracketSize,
-  watchlistPool: FilmItem[],
+  eligiblePool: FilmItem[],
   allSeen: SeenFilmItem[],
   lib: LibraryState
 ): FilmItem[] {
-  const cleanWatch = dedupeFilms(
-    watchlistPool.filter((x) => !lib.marks[filmKey(x)])
-  );
+  const uniquePool = dedupeFilms(eligiblePool);
+  if (uniquePool.length < count) return [];
 
   if (source === "watchlist_taste") {
     const topCandidates = shortlistPool(
-      cleanWatch,
+      uniquePool,
       allSeen,
       lib,
       new Set(),
@@ -80,7 +164,7 @@ export function pickContenders(
     if (picked.length < count) {
       const used = new Set(picked.map(filmKey));
       const rest = shuffleArray(
-        cleanWatch.filter((x) => !used.has(filmKey(x)))
+        uniquePool.filter((x) => !used.has(filmKey(x)))
       );
       return picked.concat(rest).slice(0, count);
     }
@@ -88,16 +172,38 @@ export function pickContenders(
   }
 
   if (source === "seen_cult") {
-    const uniqueSeen = dedupeFilms(allSeen) as SeenFilmItem[];
-    const ratedTop = uniqueSeen
+    const seenLookup = new Map<string, SeenFilmItem>();
+    for (const item of allSeen) {
+      seenLookup.set(filmKey(item), item);
+    }
+    const eligibleSeen = uniquePool.map(
+      (f) => seenLookup.get(filmKey(f)) || (f as SeenFilmItem)
+    );
+    const ratedTop = eligibleSeen
       .filter((x) => x.r != null && x.r > 0)
       .sort((a, b) => (b.r || 0) - (a.r || 0))
-      .slice(0, 48);
-    const pool = ratedTop.length >= count ? ratedTop : uniqueSeen;
+      .slice(0, Math.max(48, count * 2));
+    const pool = ratedTop.length >= count ? ratedTop : eligibleSeen;
     return shuffleArray(pool).slice(0, count);
   }
 
-  return shuffleArray(cleanWatch).slice(0, count);
+  return shuffleArray(uniquePool).slice(0, count);
+}
+
+export function getAvailableDecadesForPool(pool: FilmItem[]): string[] {
+  const present = new Set<string>();
+  for (const film of pool) {
+    const y = Number(film.y);
+    if (!y) continue;
+    for (const d of DECADE_FILTERS) {
+      const [min, max] = d.value.split("-").map(Number);
+      if (y >= min && y <= max) {
+        present.add(d.value);
+        break;
+      }
+    }
+  }
+  return DECADE_FILTERS.filter((d) => present.has(d.value)).map((d) => d.value);
 }
 
 export function createBracket(

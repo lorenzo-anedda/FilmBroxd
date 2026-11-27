@@ -146,6 +146,7 @@ export function parseFilmImport(text: string): SeenFilmItem[] {
   const iN = ix(["name", "title", "titolo", "nome"]);
   const iY = ix(["year", "anno"]);
   const iR = ix(["rating", "voto", "your rating"]);
+  const iRw = ix(["rewatch"]);
   const out: SeenFilmItem[] = [];
 
   if (iN >= 0) {
@@ -153,10 +154,13 @@ export function parseFilmImport(text: string): SeenFilmItem[] {
       const t = (r[iN] || "").trim();
       if (!t) continue;
       const rt = iR >= 0 ? parseFloat((r[iR] || "").replace(",", ".")) : NaN;
+      const rwRaw = iRw >= 0 ? (r[iRw] || "").trim().toLowerCase() : "";
+      const rw = rwRaw === "yes" || rwRaw === "true" || rwRaw === "1";
       out.push({
         t,
         y: iY >= 0 ? (r[iY] || "").trim() : "",
         r: Number.isNaN(rt) ? null : rt,
+        ...(rw ? { rw: true } : {}),
       });
     }
   } else {
@@ -173,4 +177,31 @@ export function parseFilmImport(text: string): SeenFilmItem[] {
     }
   }
   return out;
+}
+
+export function mergeSeenImports(
+  existing: SeenFilmItem[],
+  incoming: SeenFilmItem[]
+): SeenFilmItem[] {
+  const map = new Map<string, SeenFilmItem>();
+  const keyOf = (x: { t: string; y?: string }) =>
+    `${x.t.trim().toLowerCase()}|${(x.y || "").trim()}`;
+
+  for (const item of existing) {
+    map.set(keyOf(item), { ...item });
+  }
+  for (const item of incoming) {
+    const k = keyOf(item);
+    const prev = map.get(k);
+    if (!prev) {
+      map.set(k, { ...item });
+    } else {
+      map.set(k, {
+        ...prev,
+        r: item.r != null ? item.r : prev.r,
+        rw: Boolean(prev.rw || item.rw) || undefined,
+      });
+    }
+  }
+  return Array.from(map.values());
 }
