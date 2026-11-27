@@ -10,6 +10,7 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 ├── server/
 │   ├── routes/
 │   │   ├── ai.ts                     # Endpoint /api/health e /api/ai/generate
+│   │   ├── letterboxd.ts             # Endpoint /api/letterboxd/diary (sync RSS pubblico)
 │   │   └── preview.ts                # Endpoint /api/film/preview
 │   └── services/
 │       ├── geminiService.ts          # Client Gemini, retry esponenziale e gestione errori
@@ -48,10 +49,11 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │       ├── CineSfidaBracket.tsx      # Tabellone visivo dai Quarti o Ottavi fino alla Finale
 │       ├── CineSfidaVictory.tsx      # Schermata di vittoria a tema cinema con sipario
 │       ├── PendingQueue.tsx          # Promemoria film scelti nelle serate precedenti
-│       ├── HistoryView.tsx           # Cronologia, da vedere e scartati
-│       ├── ProfileStats.tsx          # Grafici statistiche su voti, decenni, registi e attori
+│       ├── DiaryTab.tsx              # Timeline mensile Diario Letterboxd + sync RSS + filtri
+│       ├── HistoryView.tsx           # Cronologia, Diario, da vedere e scartati
+│       ├── ProfileStats.tsx          # Grafici statistiche, ritmo mensile e film più rivisti
 │       ├── ProfileView.tsx           # Profilo gusti e arricchimento metadati
-│       └── ArchiveView.tsx           # Import/export Letterboxd CSV e backup JSON
+│       └── ArchiveView.tsx           # Import CSV (incluso diary.csv), sync RSS e backup JSON
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -102,20 +104,21 @@ Chi scarica o clona il progetto può sostituirla completamente con i propri dati
 2. **Riparti da zero o importa direttamente in `Archivio`**:
    - Apri la scheda **Archivio** nell'header dell'app.
    - Se vuoi prima azzerare tutto, clicca **Svuota tutto (riparti da zero)** per cancellare watchlist, film visti, voti, cronologia e profilo precaricati (viene conservata solo la cache pubblica di metadati/durate/generi dei film).
-   - Carica `watchlist.csv` nel riquadro **Watchlist** e seleziona `watched.csv` + `ratings.csv` nel riquadro **Film visti e voti** (puoi selezionarli anche **insieme** in un solo caricamento o uno dopo l'altro: l'app fonde automaticamente i voti sui film visti senza perdere quelli senza voto).
-   - Al primo import di un tuo CSV dalla libreria precaricata, l'app sostituisce automaticamente anche eventuali dati personali precaricati rimasti (profilo gusti, cronologia e lista opposta non ancora importata) e passa in modalità **Libreria personale attiva** (salvata nel `localStorage` del browser).
+   - Carica `watchlist.csv` nel riquadro **Watchlist** e seleziona `watched.csv`, `ratings.csv` e/o `diary.csv` nel riquadro **Visti, voti e diario** (puoi selezionarli anche **insieme** in un solo caricamento o uno dopo l'altro: l'app fonde automaticamente film visti, voti, rewatch e date nel **Diario**).
+   - In alternativa (o per tenere aggiornati gli ultimi film visti senza riesportare lo `.zip`), puoi usare il **Sync rapido RSS Letterboxd** inserendo il tuo username pubblico in **Archivio** oppure in **Cronologia → Diario**.
+   - Al primo import di un tuo CSV o sync RSS dalla libreria precaricata, l'app sostituisce automaticamente anche eventuali dati personali precaricati rimasti (profilo gusti, cronologia e lista opposta non ancora importata) e passa in modalità **Libreria personale attiva** (salvata nel `localStorage` del browser).
 
 3. **Rigenera il tuo profilo e arricchisci i metadati**:
-   - Vai nella scheda **Profilo** per vedere subito le statistiche su voti e decenni dai tuoi CSV, rigenerare il tuo profilo gusti personale con Gemini e avviare l'arricchimento di registi, attori, durate e generi.
+   - Vai nella scheda **Profilo** per vedere subito le statistiche su voti, decenni, ritmo mensile e rewatch dai tuoi CSV/Diario, rigenerare il tuo profilo gusti personale con Gemini e avviare l'arricchimento di registi, attori, durate e generi.
    - Se vuoi tornare in qualsiasi momento ai dati dimostrativi originali, in **Archivio** trovi il pulsante **Ripristina libreria precaricata**.
 
 ## Funzionalità principali
 
-- **Serata (Cosa guardiamo stasera)**: preset rapidi per iniziare subito, selezione compagnia, griglia mood, filtri per durata/generi/paesi/epoche/rischio, pesca casuale **Sorprendimi**, vetrina locandine della watchlist e 5 proposte + 1 consiglio extra calibrato sul tuo gusto.
+- **Serata (Cosa guardiamo stasera)**: preset rapidi per iniziare subito, selezione compagnia, griglia mood, filtri per durata/generi/paesi/epoche/rischio, pesca casuale **Sorprendimi**, vetrina locandine della watchlist, segnale anti-ripetizione basato sugli ultimi 7–14 giorni del Diario e modalità **Rewatch confortevole** per pescare dai film già amati.
 - **ReelRouette (CineSfida)**: torneo a eliminazione diretta (8 film dai Quarti o 16 film dagli Ottavi) con filtri dedicati sul pool iniziale (ricerca, durata, generi, decenni, filtri Serata) e scelta rapida da tastiera (`←`/`1`, `→`/`2`).
 - **Locandine & Anteprime**: recupero automatico delle locandine in parallelo da **Letterboxd** e **IMDb** (con verifica su titolo, anno e regista e fallback su Wikipedia), accompagnato da sinossi in italiano da Wikipedia o Gemini.
-- **Profilo**: statistiche visive su media voti, distribuzione mezze stelle, decenni preferiti, registi e attori più visti/amati (escludendo i cast dei soli film d'animazione così emergono gli attori tradizionali), lista ispezionabile dei film attribuiti con rianalisi mirata e sintesi testuale dei gusti.
-- **Cronologia & Archivio**: tracciamento delle serate precedenti, export/import backup completo `.json` e gestione CSV Letterboxd.
+- **Profilo**: statistiche visive su media voti, distribuzione mezze stelle, decenni preferiti, **ritmo mensile** (anno corrente vs precedente), **film più rivisti**, registi e attori più visti/amati (escludendo i cast dei soli film d'animazione così emergono gli attori tradizionali) con ispezione e rianalisi mirata dei film attribuiti.
+- **Diario, Cronologia & Archivio**: timeline **Diario** raggruppata per mese/anno con locandine, stelle, tag e filtro rewatch (alimentata da `diary.csv`, sync RSS pubblico o registrazioni locali), tracciamento delle serate precedenti, export/import backup completo `.json` e gestione CSV Letterboxd.
 
 ## Licenza
 

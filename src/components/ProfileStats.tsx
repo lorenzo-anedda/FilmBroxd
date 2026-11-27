@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { displayTitle } from "../utils/filmHelpers";
 import { computeProfileStats, type PersonStat } from "../utils/profileStats";
-import type { FilmMeta, SeenFilmItem } from "../types";
+import type { DiaryEntry, FilmMeta, SeenFilmItem } from "../types";
 
 interface ProfileStatsProps {
   allSeen: SeenFilmItem[];
   meta: Record<string, FilmMeta>;
+  diary?: DiaryEntry[];
   aiAvailable: boolean;
   busyPeople: boolean;
   peopleProgress: string;
@@ -180,6 +181,7 @@ const PeopleCard: React.FC<{
 export const ProfileStats: React.FC<ProfileStatsProps> = ({
   allSeen,
   meta,
+  diary,
   aiAvailable,
   busyPeople,
   peopleProgress,
@@ -190,8 +192,8 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
   onResetAndReenrichPeople,
 }) => {
   const stats = useMemo(
-    () => computeProfileStats(allSeen, meta),
-    [allSeen, meta]
+    () => computeProfileStats(allSeen, meta, diary),
+    [allSeen, meta, diary]
   );
 
   if (stats.totalSeen === 0) {
@@ -529,6 +531,169 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
           onReenrichFilms={onReenrichFilms}
         />
       </div>
+
+      {/* Diary Analytics: Monthly pace + Top Rewatches */}
+      {stats.diaryStats && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Monthly Pace Comparison */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 dark:border-slate-800 dark:bg-[#131722]">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+              <div>
+                <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Ritmo mensile (Diario)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {stats.diaryStats.currentYear}:{" "}
+                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {stats.diaryStats.currentYearCount}
+                  </span>{" "}
+                  film · {stats.diaryStats.previousYear}:{" "}
+                  <span className="font-mono">
+                    {stats.diaryStats.previousYearCount}
+                  </span>{" "}
+                  film
+                </p>
+              </div>
+              {stats.diaryStats.peakMonth && (
+                <span className="font-mono text-xs font-medium tabular-nums text-[#2563EB] dark:text-[#60A5FA]">
+                  Picco: {stats.diaryStats.peakMonth.label} ({stats.diaryStats.peakMonth.count})
+                </span>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <div className="grid grid-cols-12 items-end gap-1.5">
+                {stats.diaryStats.monthlyComparison.map((m) => (
+                  <div
+                    key={m.monthIndex}
+                    className="flex flex-col items-center gap-1.5"
+                    title={`${m.label}: ${m.currentCount} (${stats.diaryStats!.currentYear}) vs ${m.previousCount} (${stats.diaryStats!.previousYear})`}
+                  >
+                    <span className="font-mono text-[10px] tabular-nums text-slate-600 dark:text-slate-400">
+                      {m.currentCount > 0 ? m.currentCount : ""}
+                    </span>
+                    <div className="flex h-28 w-full items-end justify-center gap-0.5 rounded-sm bg-slate-100/80 p-0.5 dark:bg-[#0B0E14]">
+                      {m.previousCount > 0 && (
+                        <svg
+                          className="h-full w-1/2 text-slate-300 dark:text-slate-700"
+                          viewBox="0 0 12 100"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            x="0"
+                            y={100 - m.previousPct}
+                            width="12"
+                            height={m.previousPct}
+                            rx="2"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      )}
+                      {m.currentCount > 0 && (
+                        <svg
+                          className="h-full w-1/2 text-[#2563EB] dark:text-[#3B82F6]"
+                          viewBox="0 0 12 100"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            x="0"
+                            y={100 - m.currentPct}
+                            width="12"
+                            height={m.currentPct}
+                            rx="2"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                      {m.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center justify-end gap-4 text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="inline-flex items-center gap-1.5">
+                  <svg className="h-2.5 w-2.5 text-[#2563EB] dark:text-[#3B82F6]" viewBox="0 0 10 10" aria-hidden="true">
+                    <rect width="10" height="10" rx="2" fill="currentColor" />
+                  </svg>
+                  {stats.diaryStats.currentYear}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <svg className="h-2.5 w-2.5 text-slate-300 dark:text-slate-700" viewBox="0 0 10 10" aria-hidden="true">
+                    <rect width="10" height="10" rx="2" fill="currentColor" />
+                  </svg>
+                  {stats.diaryStats.previousYear}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Most Rewatched Films */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 dark:border-slate-800 dark:bg-[#131722]">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+              <div>
+                <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Film più rivisti
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Titoli con rewatch o visioni multiple nel Diario
+                </p>
+              </div>
+              <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                {stats.diaryStats.topRewatches.length}
+              </span>
+            </div>
+
+            {stats.diaryStats.topRewatches.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                Nessun rewatch registrato ancora nel Diario.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-200/70 dark:divide-slate-800">
+                {stats.diaryStats.topRewatches.map((item, idx) => (
+                  <li
+                    key={item.k}
+                    className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {item.t}
+                        </span>
+                        {item.y && (
+                          <span className="shrink-0 font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                            {item.y}
+                          </span>
+                        )}
+                      </div>
+                      <p className="pl-6 text-[11px] text-slate-500 dark:text-slate-400">
+                        Ultima visione: {item.lastWatchedDate}
+                      </p>
+                    </div>
+                    <div className="shrink-0 font-mono text-xs tabular-nums">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {item.count}×
+                      </span>
+                      {item.rating != null && (
+                        <span className="ml-2 text-[#2563EB] dark:text-[#60A5FA]">
+                          {item.rating}
+                          {stats.scaleMax === 5 ? "★" : "/10"}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 };

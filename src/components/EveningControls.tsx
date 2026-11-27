@@ -93,6 +93,9 @@ interface EveningControlsProps {
   aiAvailable: boolean;
   engineMode: EngineMode;
   onChangeEngineMode: (mode: EngineMode) => void;
+  rewatchMode: boolean;
+  onChangeRewatchMode: (rewatch: boolean) => void;
+  rewatchCount: number;
   loading: boolean;
   onRecommend: () => void;
 }
@@ -128,6 +131,9 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
   aiAvailable,
   engineMode,
   onChangeEngineMode,
+  rewatchMode,
+  onChangeRewatchMode,
+  rewatchCount,
   loading,
   onRecommend,
 }) => {
@@ -496,8 +502,40 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           )}
         </div>
 
-        {/* Engine switch & Primary CTA */}
+        {/* Source & Engine switch & Primary CTA */}
         <div className="mt-6 space-y-3 border-t border-slate-200/80 pt-5 dark:border-slate-800">
+          {rewatchCount > 0 && (
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="text-slate-500 dark:text-slate-400">
+                Peschiamo da
+              </span>
+              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-[#F5F7FA] p-0.5 dark:border-slate-800 dark:bg-[#0B0E14]">
+                <button
+                  type="button"
+                  onClick={() => onChangeRewatchMode(false)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                    !rewatchMode
+                      ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
+                      : "text-slate-600 dark:text-slate-400"
+                  }`}
+                >
+                  Watchlist
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChangeRewatchMode(true)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                    rewatchMode
+                      ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
+                      : "text-slate-600 dark:text-slate-400"
+                  }`}
+                >
+                  Rewatch confortevole
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3 text-xs">
             <span className="text-slate-500 dark:text-slate-400">
               Motore di scelta
@@ -536,7 +574,11 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
             className="w-full rounded-xl bg-[#2563EB] px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
           >
             {loading
-              ? "Sto scegliendo dalla tua watchlist…"
+              ? rewatchMode
+                ? "Scelgo 5 rewatch confortevoli…"
+                : "Sto scegliendo dalla tua watchlist…"
+              : rewatchMode
+              ? "Suggeriscimi 5 rewatch"
               : engineMode === "ai" && aiAvailable
               ? "Suggeriscimi 5 + 1 bonus"
               : "Suggeriscimi 5 dalla lista"}
@@ -544,7 +586,9 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
 
           {!filtersOpen && (
             <p className="text-center font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
-              {filteredCount} film disponibili in watchlist
+              {rewatchMode
+                ? `${rewatchCount} film candidati per il rewatch`
+                : `${filteredCount} film disponibili in watchlist`}
             </p>
           )}
         </div>

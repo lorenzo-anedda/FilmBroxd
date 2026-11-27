@@ -60,6 +60,9 @@ export function loadInitialLibraryState(): LibraryState {
     hist: [...(SEED.hist || [])],
     add: [...(SEED.add || [])],
     why: [...(SEED.why || [])],
+    diary: [],
+    letterboxdUser: "",
+    diarySyncedAt: 0,
     ts: SEED.ts || Date.now(),
   };
 
@@ -78,6 +81,11 @@ export function loadInitialLibraryState(): LibraryState {
           hist: Array.isArray(parsed.hist) ? parsed.hist : lib.hist,
           add: Array.isArray(parsed.add) ? parsed.add : lib.add,
           why: Array.isArray(parsed.why) ? parsed.why : lib.why,
+          diary: Array.isArray(parsed.diary) ? parsed.diary : [],
+          letterboxdUser:
+            typeof parsed.letterboxdUser === "string" ? parsed.letterboxdUser : "",
+          diarySyncedAt:
+            typeof parsed.diarySyncedAt === "number" ? parsed.diarySyncedAt : 0,
           ts: parsed.ts || lib.ts,
         };
       }

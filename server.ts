@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { aiRouter } from "./server/routes/ai.ts";
 import { previewRouter } from "./server/routes/preview.ts";
+import { letterboxdRouter } from "./server/routes/letterboxd.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,7 @@ async function startServer() {
 
   app.use("/api", aiRouter);
   app.use("/api", previewRouter);
+  app.use("/api", letterboxdRouter);
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

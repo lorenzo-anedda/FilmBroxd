@@ -16,7 +16,9 @@ import {
 } from "./utils/filmHelpers";
 import {
   buildFilterSummary,
+  buildRecentDiaryBlock,
   buildRecommendPrompt,
+  buildRewatchPool,
   buildSeenList,
   buildTasteBlock,
   buildWhyBlock,
@@ -24,7 +26,12 @@ import {
   rankedPool,
   shortlistPool,
 } from "./utils/recommender";
-import { parseJsonSafely } from "./utils/parsers";
+import {
+  diaryToSeenItems,
+  mergeDiaryEntries,
+  mergeSeenImports,
+  parseJsonSafely,
+} from "./utils/parsers";
 import {
   loadInitialDataState,
   loadInitialLibraryState,
@@ -32,7 +39,12 @@ import {
   persistLibraryState,
 } from "./utils/storage";
 import { OUTCOMES } from "./constants/filters";
-import { checkAIHealth, formatAIError, generateWithAI } from "./utils/aiClient";
+import {
+  checkAIHealth,
+  formatAIError,
+  generateWithAI,
+  syncLetterboxdDiary,
+} from "./utils/aiClient";
 import { useFilmPreviews } from "./hooks/useFilmPreviews";
 import { HeaderBar } from "./components/HeaderBar";
 import {
@@ -48,6 +60,7 @@ import { ArchiveView } from "./components/ArchiveView";
 import type {
   ActivePick,
   ActiveTab,
+  DiaryEntry,
   EngineMode,
   FilmItem,
   FilmMeta,
@@ -82,6 +95,7 @@ export default function App() {
 
   const [aiAvailable, setAiAvailable] = useState<boolean>(true);
   const [engineMode, setEngineMode] = useState<EngineMode>("ai");
+  const [rewatchMode, setRewatchMode] = useState<boolean>(false);
 
   // Evening controls
   const [selectedMoods, setSelectedMoods] = useState<Set<string>>(() => new Set());
@@ -185,6 +199,14 @@ export default function App() {
     [data.seen, lib.marks]
   );
 
+  const rewatchPool = useMemo(
+    () =>
+      buildRewatchPool(allSeen, lib)
+        .map((item) => item.film)
+        .filter((x) => passesFilters(x, lib, filterConfig)),
+    [allSeen, lib, filterConfig]
+  );
+
   const tonightCount = useMemo(
     () => (lib.hist || []).filter((h) => h.o === "y").length,
     [lib.hist]
@@ -277,12 +299,19 @@ export default function App() {
   };
 
   const handleSurprisePick = () => {
-    const pool = filteredBase.length > 0 ? filteredBase : fullWatchlist;
+    const pool = rewatchMode
+      ? rewatchPool
+      : filteredBase.length > 0
+        ? filteredBase
+        : fullWatchlist;
     if (!pool.length) {
       setStageError("Nessun film disponibile con questi filtri.");
       return;
     }
-    const ranked = rankedPool(pool, allSeen, lib, selectedMoods);
+    const ranked = rankedPool(pool, allSeen, lib, selectedMoods, {
+      ignoreRecentVariety: rewatchMode,
+      selectedGenres: genreSel,
+    });
     const topSlice = ranked.slice(0, Math.min(12, ranked.length));
     const chosen = topSlice[Math.floor(Math.random() * topSlice.length)]?.x;
     if (!chosen) return;
@@ -293,13 +322,18 @@ export default function App() {
         film: canonicalLabel(chosen),
         durata: m?.m ? `${m.m} min` : "",
         regista: m?.d || "",
-        perche:
-          "Estratto tra i titoli della tua watchlist più in sintonia con i criteri di stasera.",
+        perche: rewatchMode
+          ? "Rewatch confortevole pescato tra i film che hai amato di più."
+          : "Estratto tra i titoli della tua watchlist più in sintonia con i criteri di stasera.",
       },
       false
     );
     setStageError("");
-    setStageNotice("Sorpresa dalla watchlist pronta.");
+    setStageNotice(
+      rewatchMode
+        ? "Rewatch a sorpresa pronto."
+        : "Sorpresa dalla watchlist pronta."
+    );
     setPicks([pick]);
     autoFetchMeta(chosen);
   };
@@ -375,18 +409,24 @@ export default function App() {
   };
 
   const handleRecommend = async () => {
-    if (!data.watch.length) {
+    if (!rewatchMode && !data.watch.length) {
       setStageError("Carica prima la watchlist nella sezione Archivio.");
       return;
     }
 
-    const pool = fullWatchlist.filter(
-      (x) => passesFilters(x, lib, filterConfig) && !data.shown.includes(canonicalLabel(x))
-    );
+    const pool = rewatchMode
+      ? rewatchPool
+      : fullWatchlist.filter(
+          (x) =>
+            passesFilters(x, lib, filterConfig) &&
+            !data.shown.includes(canonicalLabel(x))
+        );
 
     if (!pool.length) {
       setStageError(
-        "Nessun film in lista corrisponde a questi filtri (o li hai già visti tutti): prova ad allargare i filtri."
+        rewatchMode
+          ? "Nessun film idoneo al rewatch trovato con questi filtri: prova ad allargarli o sincronizza i voti/diario."
+          : "Nessun film in lista corrisponde a questi filtri (o li hai già visti tutti): prova ad allargare i filtri."
       );
       return;
     }
@@ -432,6 +472,8 @@ export default function App() {
           tasteBlock: buildTasteBlock(allSeen),
           discarded,
           whyBlock: buildWhyBlock(lib.why),
+          recentDiaryBlock: buildRecentDiaryBlock(lib.diary, lib.meta),
+          rewatchMode,
           shownExtra: shownX,
           seenList: buildSeenList(allSeen, 600),
           watchlistLines,
@@ -441,10 +483,10 @@ export default function App() {
       } catch (err) {
         usedLocal = true;
         localFallbackReason = formatAIError(err);
-        arr = localRecommend(pool, allSeen, lib, selectedMoods);
+        arr = localRecommend(pool, allSeen, lib, selectedMoods, { rewatchMode });
       }
     } else {
-      arr = localRecommend(pool, allSeen, lib, selectedMoods);
+      arr = localRecommend(pool, allSeen, lib, selectedMoods, { rewatchMode });
     }
 
     const lookupMap = new Map<string, FilmItem>();
@@ -495,7 +537,7 @@ export default function App() {
     }
 
     let bonusErr = "";
-    if (!extraPicks.length && !usedLocal) {
+    if (!rewatchMode && !extraPicks.length && !usedLocal) {
       try {
         const bonusPrompt = [
           `Suggerisci 10 film BONUS candidati per l'utente, in ordine di preferenza: reali e noti con certezza, NON presenti nella sua watchlist né tra i film già visti, affini ai suoi gusti e adatti al momento.`,
@@ -542,11 +584,13 @@ export default function App() {
     const combined = [...listPicks, ...extraPicks];
     setPicks(combined);
 
-    updateData((prev) => ({
-      ...prev,
-      shown: [...prev.shown, ...newlyShown],
-      shownX: [...(prev.shownX || []), ...newlyShownX],
-    }));
+    if (!rewatchMode) {
+      updateData((prev) => ({
+        ...prev,
+        shown: [...prev.shown, ...newlyShown],
+        shownX: [...(prev.shownX || []), ...newlyShownX],
+      }));
+    }
 
     updateLib((prev) => {
       let nextHist = prev.hist;
@@ -560,10 +604,14 @@ export default function App() {
       setStageNotice(
         localFallbackReason
           ? `Scelta effettuata con punteggio locale (${localFallbackReason}).`
-          : "Scelta effettuata con il punteggio locale. Passa ad AI Gemini per includere anche il +1 fuori lista."
+          : rewatchMode
+            ? "5 rewatch selezionati dal tuo diario/storico."
+            : "Scelta effettuata con il punteggio locale. Passa ad AI Gemini per includere anche il +1 fuori lista."
       );
     } else if (!combined.length) {
       setStageError("Nessun titolo valido trovato, riprova.");
+    } else if (rewatchMode) {
+      setStageNotice("5 rewatch confortevoli pronti per stasera.");
     } else if (!extraPicks.length) {
       setStageNotice(
         bonusErr || "Il film bonus non è arrivato: premi di nuovo per altri 5 + 1."
@@ -897,6 +945,29 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
     }
   };
 
+  const appendLocalDiaryLog = (
+    prevDiary: DiaryEntry[] | undefined,
+    film: FilmItem,
+    rating: number | null
+  ): DiaryEntry[] => {
+    const k = filmKey(film);
+    const today = new Date().toISOString().slice(0, 10);
+    const alreadySeenBefore =
+      allSeen.some((s) => filmKey(s) === k) ||
+      (prevDiary || []).some((d) => d.k === k && d.watchedDate !== today);
+    const entry: DiaryEntry = {
+      id: `local-${k}|${today}`,
+      k,
+      t: film.t,
+      y: film.y || "",
+      watchedDate: today,
+      loggedDate: today,
+      r: rating,
+      ...(alreadySeenBefore ? { rw: true } : {}),
+    };
+    return mergeDiaryEntries(prevDiary || [], [entry]);
+  };
+
   const handleRateSeen = (pick: ActivePick, rating: number) => {
     if (rating < 0) {
       setPicks((prev) =>
@@ -912,6 +983,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
         [k]: { s: "seen", t: pick.film.t, y: pick.film.y, r: rating },
       },
       hist: upsertHistory(prev.hist, pick.film, "s", pick.extra),
+      diary: appendLocalDiaryLog(prev.diary, pick.film, rating),
     }));
     setPicks((prev) =>
       prev.map((p) =>
@@ -971,6 +1043,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
   };
 
   const handleOutcome = (entry: HistoryEntry, outcome: OutcomeKey) => {
+    const rating = OUTCOMES[outcome].rating;
     updateLib((prev) => ({
       ...prev,
       marks: {
@@ -979,7 +1052,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
           s: "seen",
           t: entry.t,
           y: entry.y,
-          r: OUTCOMES[outcome].rating,
+          r: rating,
           fb: outcome,
           ts: Date.now(),
         },
@@ -990,7 +1063,47 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
         "s",
         entry.e
       ),
+      diary: appendLocalDiaryLog(
+        prev.diary,
+        { t: entry.t, y: entry.y },
+        rating
+      ),
     }));
+  };
+
+  const handleSyncDiaryRss = async (
+    username: string
+  ): Promise<{ added: number; total: number }> => {
+    const res = await syncLetterboxdDiary(username);
+    const switchingFromSeed = !data.custom;
+    const prevDiary = switchingFromSeed ? [] : lib.diary || [];
+    const nextDiary = mergeDiaryEntries(prevDiary, res.entries);
+    const added = Math.max(0, nextDiary.length - prevDiary.length);
+
+    const incomingSeen = diaryToSeenItems(res.entries);
+    updateData((prev) => ({
+      watch: switchingFromSeed ? [] : prev.watch,
+      seen: mergeSeenImports(switchingFromSeed ? [] : prev.seen, incomingSeen),
+      shown: switchingFromSeed ? [] : prev.shown,
+      shownX: switchingFromSeed ? [] : prev.shownX,
+      custom: true,
+    }));
+
+    updateLib((prev) => ({
+      meta: prev.meta,
+      marks: switchingFromSeed ? {} : prev.marks,
+      profile: switchingFromSeed ? "" : prev.profile,
+      partner: switchingFromSeed ? "" : prev.partner,
+      hist: switchingFromSeed ? [] : prev.hist,
+      add: switchingFromSeed ? [] : prev.add,
+      why: switchingFromSeed ? [] : prev.why,
+      diary: nextDiary,
+      letterboxdUser: res.user,
+      diarySyncedAt: res.fetchedAt,
+      ts: Date.now(),
+    }));
+
+    return { added, total: res.entries.length };
   };
 
   const handleDeferPending = (entry: HistoryEntry) => {
@@ -1134,6 +1247,9 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
                 aiAvailable={aiAvailable}
                 engineMode={engineMode}
                 onChangeEngineMode={setEngineMode}
+                rewatchMode={rewatchMode}
+                onChangeRewatchMode={setRewatchMode}
+                rewatchCount={rewatchPool.length}
                 loading={loading}
                 onRecommend={handleRecommend}
               />
@@ -1226,6 +1342,8 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
                 meta: { ...prev.meta, ...updates },
               }))
             }
+            onSyncDiaryRss={handleSyncDiaryRss}
+            onOpenArchive={() => setTab("archivio")}
           />
         )}
 
@@ -1270,12 +1388,15 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
                   hist: [],
                   add: [],
                   why: [],
+                  diary: [],
+                  letterboxdUser: "",
+                  diarySyncedAt: 0,
                   ts: Date.now(),
                 }));
               }
               setPicks([]);
             }}
-            onImportSeen={(films: SeenFilmItem[]) => {
+            onImportSeen={(films: SeenFilmItem[], diaryEntries?: DiaryEntry[]) => {
               const switchingFromSeed = !data.custom;
               updateData((prev) => ({
                 watch: switchingFromSeed ? [] : prev.watch,
@@ -1284,19 +1405,26 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
                 shownX: switchingFromSeed ? [] : prev.shownX,
                 custom: true,
               }));
-              if (switchingFromSeed) {
-                updateLib((prev) => ({
-                  meta: prev.meta,
-                  marks: {},
-                  profile: "",
-                  partner: "",
-                  hist: [],
-                  add: [],
-                  why: [],
-                  ts: Date.now(),
-                }));
-              }
+              updateLib((prev) => ({
+                meta: prev.meta,
+                marks: switchingFromSeed ? {} : prev.marks,
+                profile: switchingFromSeed ? "" : prev.profile,
+                partner: switchingFromSeed ? "" : prev.partner,
+                hist: switchingFromSeed ? [] : prev.hist,
+                add: switchingFromSeed ? [] : prev.add,
+                why: switchingFromSeed ? [] : prev.why,
+                diary:
+                  diaryEntries !== undefined
+                    ? diaryEntries
+                    : switchingFromSeed
+                      ? []
+                      : prev.diary || [],
+                letterboxdUser: switchingFromSeed ? "" : prev.letterboxdUser,
+                diarySyncedAt: switchingFromSeed ? 0 : prev.diarySyncedAt,
+                ts: Date.now(),
+              }));
             }}
+            onSyncDiaryRss={handleSyncDiaryRss}
             onClearToEmptyUser={() => {
               const emptyData: WatchlistDataState = {
                 watch: [],
@@ -1315,6 +1443,9 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
                 hist: [],
                 add: [],
                 why: [],
+                diary: [],
+                letterboxdUser: "",
+                diarySyncedAt: 0,
                 ts: Date.now(),
               }));
               setPicks([]);

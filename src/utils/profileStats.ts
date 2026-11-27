@@ -1,5 +1,5 @@
 import { displayTitle, filmKey, nz } from "./filmHelpers";
-import type { FilmMeta, SeenFilmItem } from "../types";
+import type { DiaryEntry, FilmMeta, SeenFilmItem } from "../types";
 
 export interface RatingBucket {
   value: number;
@@ -29,6 +29,35 @@ export interface PersonStat {
   pctOfMaxCount: number;
 }
 
+export interface DiaryMonthStat {
+  monthIndex: number;
+  label: string;
+  currentCount: number;
+  previousCount: number;
+  currentPct: number;
+  previousPct: number;
+}
+
+export interface RewatchFilmStat {
+  k: string;
+  t: string;
+  y: string;
+  count: number;
+  rating: number | null;
+  lastWatchedDate: string;
+}
+
+export interface DiaryStatsSummary {
+  totalEntries: number;
+  currentYear: number;
+  previousYear: number;
+  currentYearCount: number;
+  previousYearCount: number;
+  monthlyComparison: DiaryMonthStat[];
+  peakMonth: { label: string; count: number } | null;
+  topRewatches: RewatchFilmStat[];
+}
+
 export interface ProfileStatsSummary {
   totalSeen: number;
   ratedCount: number;
@@ -48,6 +77,7 @@ export interface ProfileStatsSummary {
   seenWithActors: number;
   missingPeopleFilms: SeenFilmItem[];
   checkedNoCastCount: number;
+  diaryStats: DiaryStatsSummary | null;
 }
 
 interface PersonAccumulator {
@@ -139,9 +169,151 @@ function finalizePeople(
   }));
 }
 
+const MONTH_SHORT_IT = [
+  "Gen",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mag",
+  "Giu",
+  "Lug",
+  "Ago",
+  "Set",
+  "Ott",
+  "Nov",
+  "Dic",
+];
+
+function computeDiaryStats(
+  diary: DiaryEntry[] | undefined,
+  seen: SeenFilmItem[]
+): DiaryStatsSummary | null {
+  if (!diary || diary.length === 0) return null;
+
+  const years = diary
+    .map((e) => Number(e.watchedDate.slice(0, 4)))
+    .filter((y) => Number.isFinite(y) && y > 1900);
+  const currentYear = years.length
+    ? Math.max(...years)
+    : new Date().getFullYear();
+  const previousYear = currentYear - 1;
+
+  const curMonths = Array.from({ length: 12 }, () => 0);
+  const prevMonths = Array.from({ length: 12 }, () => 0);
+  let currentYearCount = 0;
+  let previousYearCount = 0;
+
+  const filmAgg = new Map<
+    string,
+    {
+      k: string;
+      t: string;
+      y: string;
+      count: number;
+      rwFlagged: boolean;
+      rating: number | null;
+      lastWatchedDate: string;
+    }
+  >();
+
+  for (const entry of diary) {
+    const yr = Number(entry.watchedDate.slice(0, 4));
+    const mo = Number(entry.watchedDate.slice(5, 7)) - 1;
+    if (mo >= 0 && mo < 12) {
+      if (yr === currentYear) {
+        curMonths[mo] += 1;
+        currentYearCount += 1;
+      } else if (yr === previousYear) {
+        prevMonths[mo] += 1;
+        previousYearCount += 1;
+      }
+    }
+
+    const prev = filmAgg.get(entry.k);
+    if (!prev) {
+      filmAgg.set(entry.k, {
+        k: entry.k,
+        t: entry.t,
+        y: entry.y,
+        count: 1,
+        rwFlagged: Boolean(entry.rw),
+        rating: entry.r ?? null,
+        lastWatchedDate: entry.watchedDate,
+      });
+    } else {
+      filmAgg.set(entry.k, {
+        ...prev,
+        count: prev.count + 1,
+        rwFlagged: prev.rwFlagged || Boolean(entry.rw),
+        rating: entry.r != null ? entry.r : prev.rating,
+        lastWatchedDate:
+          entry.watchedDate > prev.lastWatchedDate
+            ? entry.watchedDate
+            : prev.lastWatchedDate,
+      });
+    }
+  }
+
+  // Fill any missing rating from seen list
+  const seenMap = new Map(seen.map((s) => [filmKey(s), s]));
+  const topRewatches: RewatchFilmStat[] = Array.from(filmAgg.values())
+    .filter((f) => f.count >= 2 || f.rwFlagged)
+    .map((f) => ({
+      k: f.k,
+      t: f.t,
+      y: f.y,
+      count: f.count,
+      rating: f.rating ?? seenMap.get(f.k)?.r ?? null,
+      lastWatchedDate: f.lastWatchedDate,
+    }))
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        (b.rating ?? 0) - (a.rating ?? 0) ||
+        b.lastWatchedDate.localeCompare(a.lastWatchedDate)
+    )
+    .slice(0, 10);
+
+  const maxMonthVal = Math.max(1, ...curMonths, ...prevMonths);
+  const monthlyComparison: DiaryMonthStat[] = MONTH_SHORT_IT.map((label, idx) => ({
+    monthIndex: idx,
+    label,
+    currentCount: curMonths[idx],
+    previousCount: prevMonths[idx],
+    currentPct:
+      curMonths[idx] > 0
+        ? Math.max(6, Math.round((curMonths[idx] / maxMonthVal) * 100))
+        : 0,
+    previousPct:
+      prevMonths[idx] > 0
+        ? Math.max(6, Math.round((prevMonths[idx] / maxMonthVal) * 100))
+        : 0,
+  }));
+
+  const peakCandidate = [...monthlyComparison].sort(
+    (a, b) => b.currentCount - a.currentCount
+  )[0];
+  const peakMonth =
+    peakCandidate && peakCandidate.currentCount > 0
+      ? { label: peakCandidate.label, count: peakCandidate.currentCount }
+      : null;
+
+  return {
+    totalEntries: diary.length,
+    currentYear,
+    previousYear,
+    currentYearCount,
+    previousYearCount,
+    monthlyComparison,
+    peakMonth,
+    topRewatches,
+  };
+}
+
 export function computeProfileStats(
   rawSeen: SeenFilmItem[],
-  meta: Record<string, FilmMeta>
+  meta: Record<string, FilmMeta>,
+  diary?: DiaryEntry[]
 ): ProfileStatsSummary {
   // Deduplicate by normalized filmKey while keeping the entry with rating/rewatch info
   const uniqueMap = new Map<string, SeenFilmItem>();
@@ -350,5 +522,6 @@ export function computeProfileStats(
     seenWithActors,
     missingPeopleFilms,
     checkedNoCastCount,
+    diaryStats: computeDiaryStats(diary, seen),
   };
 }

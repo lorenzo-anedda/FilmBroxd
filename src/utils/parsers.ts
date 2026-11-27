@@ -1,4 +1,4 @@
-import type { SeenFilmItem } from "../types";
+import type { DiaryEntry, SeenFilmItem } from "../types";
 
 export function parseJsonSafely<T>(text: string, opener: "[" | "{"): T {
   const cleaned = String(text || "")
@@ -177,6 +177,165 @@ export function parseFilmImport(text: string): SeenFilmItem[] {
     }
   }
   return out;
+}
+
+export function isDiaryCSV(text: string): boolean {
+  const rows = splitCSV(text.replace(/^\uFEFF/, "").slice(0, 2048));
+  if (!rows.length) return false;
+  const header = rows[0].map((x) => x.trim().toLowerCase());
+  return header.includes("watched date");
+}
+
+export function parseDiaryCSV(text: string): DiaryEntry[] {
+  const rows = splitCSV(text.replace(/^\uFEFF/, ""));
+  if (rows.length < 2) return [];
+  const header = rows[0].map((x) => x.trim().toLowerCase());
+  const ix = (names: string[]) => header.findIndex((x) => names.includes(x));
+  const iN = ix(["name", "title", "titolo", "nome"]);
+  const iY = ix(["year", "anno"]);
+  const iR = ix(["rating", "voto", "your rating"]);
+  const iRw = ix(["rewatch"]);
+  const iTags = ix(["tags"]);
+  const iWatched = ix(["watched date"]);
+  const iLogged = ix(["date"]);
+  const iUri = ix(["letterboxd uri", "uri"]);
+  if (iN < 0 || (iWatched < 0 && iLogged < 0)) return [];
+
+  const entries: DiaryEntry[] = [];
+  const seenCounts = new Map<string, number>();
+
+  for (const r of rows.slice(1)) {
+    const t = (r[iN] || "").trim();
+    if (!t) continue;
+    const y = iY >= 0 ? (r[iY] || "").trim() : "";
+    const watchedRaw = iWatched >= 0 ? (r[iWatched] || "").trim() : "";
+    const loggedRaw = iLogged >= 0 ? (r[iLogged] || "").trim() : "";
+    const watchedDate = /^\d{4}-\d{2}-\d{2}/.test(watchedRaw)
+      ? watchedRaw.slice(0, 10)
+      : /^\d{4}-\d{2}-\d{2}/.test(loggedRaw)
+        ? loggedRaw.slice(0, 10)
+        : "";
+    if (!watchedDate) continue;
+
+    const loggedDate = /^\d{4}-\d{2}-\d{2}/.test(loggedRaw)
+      ? loggedRaw.slice(0, 10)
+      : undefined;
+    const rt = iR >= 0 ? parseFloat((r[iR] || "").replace(",", ".")) : NaN;
+    const rwRaw = iRw >= 0 ? (r[iRw] || "").trim().toLowerCase() : "";
+    const rw = rwRaw === "yes" || rwRaw === "true" || rwRaw === "1";
+    const tagsRaw = iTags >= 0 ? (r[iTags] || "").trim() : "";
+    const tags = tagsRaw
+      ? tagsRaw
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+      : undefined;
+    const letterboxdUrl = iUri >= 0 ? (r[iUri] || "").trim() || undefined : undefined;
+    const k = `${t.toLowerCase()}|${y}`;
+    const baseId = `${k}|${watchedDate}`;
+    const occ = (seenCounts.get(baseId) || 0) + 1;
+    seenCounts.set(baseId, occ);
+
+    entries.push({
+      id: occ > 1 ? `csv-${baseId}#${occ}` : `csv-${baseId}`,
+      k,
+      t,
+      y,
+      watchedDate,
+      ...(loggedDate ? { loggedDate } : {}),
+      r: Number.isNaN(rt) ? null : rt,
+      ...(rw ? { rw: true } : {}),
+      ...(tags && tags.length ? { tags } : {}),
+      ...(letterboxdUrl ? { letterboxdUrl } : {}),
+    });
+  }
+
+  return entries.sort(
+    (a, b) =>
+      b.watchedDate.localeCompare(a.watchedDate) ||
+      (b.loggedDate || "").localeCompare(a.loggedDate || "")
+  );
+}
+
+export function mergeDiaryEntries(
+  existing: DiaryEntry[],
+  incoming: DiaryEntry[]
+): DiaryEntry[] {
+  const map = new Map<string, DiaryEntry>();
+  const signatureOf = (e: DiaryEntry) => `${e.k}|${e.watchedDate}`;
+  const sigToKey = new Map<string, string>();
+
+  for (const item of existing) {
+    map.set(item.id, { ...item });
+    sigToKey.set(signatureOf(item), item.id);
+  }
+
+  for (const item of incoming) {
+    const existingKey = map.has(item.id)
+      ? item.id
+      : sigToKey.get(signatureOf(item));
+    if (!existingKey) {
+      map.set(item.id, { ...item });
+      sigToKey.set(signatureOf(item), item.id);
+    } else {
+      const prev = map.get(existingKey)!;
+      const mergedTags = Array.from(
+        new Set([...(prev.tags || []), ...(item.tags || [])])
+      );
+      map.set(existingKey, {
+        ...prev,
+        ...item,
+        id: item.id.startsWith("letterboxd-") ? item.id : prev.id,
+        r: item.r != null ? item.r : prev.r,
+        rw: Boolean(prev.rw || item.rw) || undefined,
+        tags: mergedTags.length ? mergedTags : undefined,
+        letterboxdUrl: item.letterboxdUrl || prev.letterboxdUrl,
+        posterUrl: item.posterUrl || prev.posterUrl,
+      });
+    }
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) =>
+      b.watchedDate.localeCompare(a.watchedDate) ||
+      (b.loggedDate || "").localeCompare(a.loggedDate || "")
+  );
+}
+
+export function diaryToSeenItems(entries: DiaryEntry[]): SeenFilmItem[] {
+  const byFilm = new Map<string, { item: SeenFilmItem; count: number; latestDate: string }>();
+  const ordered = [...entries].sort((a, b) =>
+    a.watchedDate.localeCompare(b.watchedDate)
+  );
+  for (const entry of ordered) {
+    const prev = byFilm.get(entry.k);
+    if (!prev) {
+      byFilm.set(entry.k, {
+        item: {
+          t: entry.t,
+          y: entry.y,
+          r: entry.r ?? null,
+          ...(entry.rw ? { rw: true } : {}),
+        },
+        count: 1,
+        latestDate: entry.watchedDate,
+      });
+    } else {
+      byFilm.set(entry.k, {
+        item: {
+          t: prev.item.t,
+          y: prev.item.y,
+          r: entry.r != null ? entry.r : prev.item.r,
+          ...(prev.item.rw || entry.rw ? { rw: true } : {}),
+        },
+        count: prev.count + 1,
+        latestDate: entry.watchedDate,
+      });
+    }
+  }
+  return Array.from(byFilm.values()).map(({ item, count }) =>
+    count > 1 ? { ...item, rw: true } : item
+  );
 }
 
 export function mergeSeenImports(

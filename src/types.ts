@@ -49,6 +49,20 @@ export interface DiscardWhy {
   ts: number;
 }
 
+export interface DiaryEntry {
+  id: string;
+  k: string;
+  t: string;
+  y: string;
+  watchedDate: string; // YYYY-MM-DD
+  loggedDate?: string; // YYYY-MM-DD
+  r?: number | null;
+  rw?: boolean;
+  tags?: string[];
+  letterboxdUrl?: string;
+  posterUrl?: string | null;
+}
+
 export interface LibraryState {
   meta: Record<string, FilmMeta>;
   marks: Record<string, FilmMark>;
@@ -57,6 +71,9 @@ export interface LibraryState {
   hist?: HistoryEntry[];
   add?: FilmItem[];
   why?: DiscardWhy[];
+  diary?: DiaryEntry[];
+  letterboxdUser?: string;
+  diarySyncedAt?: number;
   ts?: number;
 }
 

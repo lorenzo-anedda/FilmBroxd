@@ -7,6 +7,7 @@ import {
   type FilterConfig,
 } from "./filmHelpers";
 import type {
+  DiaryEntry,
   FilmItem,
   FilmMeta,
   LibraryState,
@@ -63,14 +64,135 @@ function computeGenrePenalty(lib: LibraryState): Record<string, number> {
   return gp;
 }
 
+function getRecentDiarySignals(
+  diary: DiaryEntry[] | undefined,
+  meta: Record<string, FilmMeta>,
+  days = 7
+): {
+  recentEntries: DiaryEntry[];
+  recentDirectors: Set<string>;
+  recentGenres: Set<string>;
+} {
+  if (!diary || !diary.length) {
+    return {
+      recentEntries: [],
+      recentDirectors: new Set(),
+      recentGenres: new Set(),
+    };
+  }
+  const cutoff = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+  const recentEntries = diary.filter((e) => e.watchedDate >= cutoff);
+  const recentDirectors = new Set<string>();
+  const recentGenres = new Set<string>();
+
+  for (const entry of recentEntries) {
+    const m = meta[entry.k] || meta[filmKey(entry)];
+    if (!m) continue;
+    if (m.d) {
+      for (const d of m.d.split(/[\/,]/)) {
+        const nd = normTitle(d);
+        if (nd) recentDirectors.add(nd);
+      }
+    }
+    if (m.g) {
+      for (const g of m.g.split(/[\/,]/)) {
+        const ng = normTitle(g);
+        if (ng) recentGenres.add(ng);
+      }
+    }
+  }
+
+  return { recentEntries, recentDirectors, recentGenres };
+}
+
+export function buildRecentDiaryBlock(
+  diary: DiaryEntry[] | undefined,
+  meta: Record<string, FilmMeta>
+): string {
+  const { recentEntries, recentDirectors, recentGenres } = getRecentDiarySignals(
+    diary,
+    meta,
+    14
+  );
+  if (!recentEntries.length) return "";
+  const list = recentEntries
+    .slice(0, 12)
+    .map((e) => {
+      const m = meta[e.k] || meta[filmKey(e)];
+      return `${e.t}${e.y ? ` (${e.y})` : ""} [${e.watchedDate}]${
+        m?.g ? ` ${m.g}` : ""
+      }`;
+    })
+    .join("; ");
+  const avoidHint =
+    recentDirectors.size || recentGenres.size
+      ? " Evita di ripetere subito lo stesso regista o esattamente lo stesso genere degli ultimi giorni, salvo richiesta esplicita del momento."
+      : "";
+  return `ULTIMI FILM VISTI NEL DIARIO (ultimi 14 giorni): ${list}.${avoidHint}`;
+}
+
+export function buildRewatchPool(
+  allSeen: SeenFilmItem[],
+  lib: LibraryState
+): Array<{ film: SeenFilmItem; lastWatched?: string; watchCount: number; score: number }> {
+  const diary = lib.diary || [];
+  const statsByFilm = new Map<string, { lastWatched: string; count: number }>();
+  for (const entry of diary) {
+    const prev = statsByFilm.get(entry.k);
+    if (!prev) {
+      statsByFilm.set(entry.k, { lastWatched: entry.watchedDate, count: 1 });
+    } else {
+      statsByFilm.set(entry.k, {
+        lastWatched:
+          entry.watchedDate > prev.lastWatched ? entry.watchedDate : prev.lastWatched,
+        count: prev.count + 1,
+      });
+    }
+  }
+
+  const rated = allSeen.filter((x) => x.r != null);
+  const maxR = rated.length ? Math.max(...rated.map((x) => x.r || 0)) : 5;
+  const unit = maxR <= 5 ? 1 : 2;
+  const cutoff30 = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+
+  return allSeen
+    .filter((x) => {
+      const stars = x.r != null ? x.r / unit : null;
+      if (x.fb === "stop" || x.fb === "meh") return false;
+      if (stars != null && stars < 3.5 && !x.rw) return false;
+      return Boolean(x.rw || x.fb === "love" || (stars != null && stars >= 3.5));
+    })
+    .map((film) => {
+      const k = filmKey(film);
+      const dStats = statsByFilm.get(k);
+      const stars = film.r != null ? film.r / unit : 3.7;
+      let sc = stars * 2;
+      if (film.rw) sc += 2.5;
+      if (film.fb === "love") sc += 2;
+      if ((dStats?.count || 0) >= 2) sc += 1.5;
+      if (dStats?.lastWatched && dStats.lastWatched >= cutoff30) sc -= 4;
+      return {
+        film,
+        lastWatched: dStats?.lastWatched,
+        watchCount: dStats?.count || 1,
+        score: sc,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
 export function rankedPool(
   pool: FilmItem[],
   allSeen: SeenFilmItem[],
   lib: LibraryState,
-  selectedMoods: Set<string>
+  selectedMoods: Set<string>,
+  options?: { ignoreRecentVariety?: boolean; selectedGenres?: Set<string> }
 ): Array<{ x: FilmItem; sc: number; why: string[] }> {
   const aff = computeDecadeAffinity(allSeen);
   const gp = computeGenrePenalty(lib);
+  const { recentDirectors, recentGenres } = options?.ignoreRecentVariety
+    ? { recentDirectors: new Set<string>(), recentGenres: new Set<string>() }
+    : getRecentDiarySignals(lib.diary, lib.meta, 7);
   const moodKeywords = [...selectedMoods]
     .map((l) => MOOD_GENRE_KEYWORDS[l])
     .filter(Boolean);
@@ -80,6 +202,7 @@ export function rankedPool(
       const y = +x.y;
       const m = lib.meta[filmKey(x)];
       const g = m && m.g ? normTitle(m.g) : "";
+      const d = m && m.d ? normTitle(m.d) : "";
       let sc = (y && aff[Math.floor(y / 10) * 10]) || 0;
       const why: string[] = [];
       if (y && sc > 0.3) why.push("è un'epoca in cui dai voti alti");
@@ -90,6 +213,25 @@ export function rankedPool(
         }
         for (const k in gp) {
           if (g.includes(k)) sc -= gp[k];
+        }
+        if (
+          recentGenres.size > 0 &&
+          (!options?.selectedGenres || options.selectedGenres.size === 0)
+        ) {
+          for (const rg of recentGenres) {
+            if (rg.length >= 4 && g.includes(rg)) {
+              sc -= 0.45;
+              break;
+            }
+          }
+        }
+      }
+      if (d && recentDirectors.size > 0) {
+        for (const rd of recentDirectors) {
+          if (rd.length >= 4 && d.includes(rd)) {
+            sc -= 0.7;
+            break;
+          }
         }
       }
       if (selectedMoods.has("Classico") && y) {
@@ -122,9 +264,12 @@ export function localRecommend(
   pool: FilmItem[],
   allSeen: SeenFilmItem[],
   lib: LibraryState,
-  selectedMoods: Set<string>
+  selectedMoods: Set<string>,
+  options?: { rewatchMode?: boolean }
 ): RawRecommendation[] {
-  return rankedPool(pool, allSeen, lib, selectedMoods)
+  return rankedPool(pool, allSeen, lib, selectedMoods, {
+    ignoreRecentVariety: options?.rewatchMode,
+  })
     .slice(0, 5)
     .map((o) => {
       const m = lib.meta[filmKey(o.x)] || ({} as FilmMeta);
@@ -133,12 +278,13 @@ export function localRecommend(
         film: canonicalLabel(o.x),
         durata: m.m ? `${m.m} min` : "",
         regista: m.d || "",
-        perche:
-          "Scelta con il punteggio locale: " +
-          (o.why.length
-            ? o.why.join(", ")
-            : "rispetta i tuoi filtri ed è tra i meno esplorati") +
-          ".",
+        perche: options?.rewatchMode
+          ? "Rewatch confortevole dal tuo diario tra i film che hai amato di più."
+          : "Scelta con il punteggio locale: " +
+            (o.why.length
+              ? o.why.join(", ")
+              : "rispetta i tuoi filtri ed è tra i meno esplorati") +
+            ".",
       };
     });
 }
@@ -259,6 +405,8 @@ export function buildRecommendPrompt(params: {
   tasteBlock: string;
   discarded: string;
   whyBlock: string;
+  recentDiaryBlock?: string;
+  rewatchMode?: boolean;
   shownExtra: string[];
   seenList: string;
   watchlistLines: string;
@@ -274,13 +422,28 @@ export function buildRecommendPrompt(params: {
     ? `\nSERATA IN DUE: i film devono piacere a entrambi. GUSTI DELL'ALTRA PERSONA: ${params.duo}\nCerca l'incrocio tra i due gusti ed evita ciò che uno dei due detesterebbe. Nel campo "perche" di ogni film spiega cosa piace a ciascuno.`
     : "";
 
+  if (params.rewatchMode) {
+    return `Sei un consulente cinematografico. L'utente cerca un REWATCH CONFORTEVOLE (rivedere un film già amato). Scegli 5 film DALLA LISTA REWATCH sotto (tutti con tipo "lista") che siano adatti al momento, piacevoli da rivedere stasera e non appena rivisti negli ultimi giorni. Non aggiungere film fuori lista.
+MOMENTO: ${params.ctx || "serata rewatch rilassante e appagante"}${riskLine}
+FILTRI RIGIDI: ${params.filterSummary || "nessuno"}${duoLine}
+PROFILO GUSTI: ${params.profile || "(non disponibile)"}
+${params.recentDiaryBlock ? `${params.recentDiaryBlock}\n` : ""}${params.whyBlock}
+
+REGOLE: tutti i 5 film vanno copiati ESATTAMENTE come scritti nella lista sotto (solo la parte "Titolo (Anno)", senza i dati dopo il simbolo |). Rispetta durata, genere e compagnia richiesti.
+${TITLE_RULES}
+Rispondi SOLO con un array JSON di 5 oggetti: {"tipo":"lista","film":"Titolo (Anno)","durata":"es. 112 min","regista":"nome e cognome, stringa vuota se non sei sicuro","perche":"1-2 frasi in italiano sul perché rivedere proprio questo film stasera"}.
+
+LISTA REWATCH:
+${params.watchlistLines}`;
+  }
+
   return `Sei un consulente cinematografico. Scegli 9 film per l'utente: 5 DALLA WATCHLIST sotto (tipo "lista") e 4 candidati BONUS (tipo "extra", in ordine di preferenza: all'utente ne verrà mostrato solo il primo valido) che NON sono nella watchlist né tra i film già visti, ma sono affini ai suoi gusti e adatti al momento. Nel bonus puoi osare un po' di più, ma devono essere film reali e conosciuti con certezza: non inventare titoli.
 MOMENTO: ${params.ctx || "nessuna indicazione, scegli varietà"}${riskLine}
 FILTRI RIGIDI (valgono anche per gli extra): ${params.filterSummary || "nessuno"}${duoLine}
 PROFILO GUSTI: ${params.profile || "(non disponibile)"}
 GUSTI (film già visti con voto):
 ${params.tasteBlock}
-SCARTATI DALL'UTENTE (evita film simili): ${params.discarded || "nessuno"}
+${params.recentDiaryBlock ? `${params.recentDiaryBlock}\n` : ""}SCARTATI DALL'UTENTE (evita film simili): ${params.discarded || "nessuno"}
 ${params.whyBlock}
 EXTRA GIÀ PROPOSTI (non riproporre): ${params.shownExtra.join("; ") || "nessuno"}
 FILM GIÀ VISTI (non suggerirli mai): ${params.seenList}

@@ -11,6 +11,7 @@ import {
   parseJsonSafely,
 } from "../utils/filmLogic";
 import { formatAIError, generateWithAI } from "../utils/aiClient";
+import { DiaryTab } from "./DiaryTab";
 import type {
   FilmMeta,
   HistoryEntry,
@@ -28,6 +29,8 @@ interface HistoryViewProps {
   onRepropose: (entry: HistoryEntry) => void;
   onUndoNever: (entry: HistoryEntry) => void;
   onMergeMeta: (updates: Record<string, FilmMeta>) => void;
+  onSyncDiaryRss: (username: string) => Promise<{ added: number; total: number }>;
+  onOpenArchive: () => void;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -39,9 +42,9 @@ const STATUS_LABELS: Record<string, string> = {
   a: "Aggiunto alla lista",
 };
 
-type HistTab = "y" | "s" | "n";
+type HistTab = "y" | "s" | "n" | "d";
 
-const tabOf = (o: string): HistTab | "" =>
+const tabOf = (o: string): "y" | "s" | "n" | "" =>
   o === "y" ? "y" : o === "s" ? "s" : o === "n" || o === "l" ? "n" : "";
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
@@ -53,9 +56,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   onRepropose,
   onUndoNever,
   onMergeMeta,
+  onSyncDiaryRss,
+  onOpenArchive,
 }) => {
   const [activeTab, setActiveTab] = useState<HistTab | "">("");
-  const [limits, setLimits] = useState<Record<HistTab, number>>({
+  const [limits, setLimits] = useState<Record<"y" | "s" | "n", number>>({
     y: 10,
     s: 10,
     n: 10,
@@ -142,20 +147,31 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     [lib.hist]
   );
 
+  const diaryEntries = lib.diary || [];
+
   const counts = useMemo(() => {
-    const c: Record<HistTab, number> = { y: 0, s: 0, n: 0 };
+    const c: Record<HistTab, number> = {
+      y: 0,
+      s: 0,
+      n: 0,
+      d: diaryEntries.length,
+    };
     filteredHist.forEach((h) => {
       const t = tabOf(h.o);
       if (t) c[t]++;
     });
     return c;
-  }, [filteredHist]);
+  }, [filteredHist, diaryEntries.length]);
 
   const currentTab: HistTab =
-    activeTab || (counts.y ? "y" : counts.s ? "s" : counts.n ? "n" : "y");
+    activeTab ||
+    (counts.y ? "y" : counts.d ? "d" : counts.s ? "s" : counts.n ? "n" : "d");
 
-  const visibleList = filteredHist.filter((h) => tabOf(h.o) === currentTab);
-  const limit = limits[currentTab];
+  const visibleList =
+    currentTab === "d"
+      ? []
+      : filteredHist.filter((h) => tabOf(h.o) === currentTab);
+  const limit = currentTab === "d" ? 10 : limits[currentTab];
 
   const handleCompleteCountries = async () => {
     const miss = stats.missingCountryFilms;
@@ -297,10 +313,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             Cronologia scelte
           </h2>
 
-          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-[#F5F7FA] p-1 dark:border-slate-800 dark:bg-[#0B0E14]">
+          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-[#F5F7FA] p-1 dark:border-slate-800 dark:bg-[#0B0E14]">
             {(
               [
                 ["y", "Da vedere"],
+                ["d", "Diario"],
                 ["s", "Visti"],
                 ["n", "Scartati"],
               ] as const
@@ -327,7 +344,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           </div>
         </div>
 
-        {!visibleList.length ? (
+        {currentTab === "d" ? (
+          <DiaryTab
+            diary={diaryEntries}
+            letterboxdUser={lib.letterboxdUser || ""}
+            diarySyncedAt={lib.diarySyncedAt}
+            meta={lib.meta}
+            onSyncRss={onSyncDiaryRss}
+            onOpenArchive={onOpenArchive}
+          />
+        ) : !visibleList.length ? (
           <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
             {currentTab === "y"
               ? "Nessun film da vedere: premi «Guardo questo» su un consiglio."
@@ -442,7 +468,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           </div>
         )}
 
-        {visibleList.length > limit && (
+        {currentTab !== "d" && visibleList.length > limit && (
           <div className="mt-5 border-t border-slate-200/80 pt-4 text-center dark:border-slate-800">
             <button
               type="button"

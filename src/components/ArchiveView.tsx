@@ -1,6 +1,14 @@
 import React, { useRef, useState } from "react";
-import { mergeSeenImports, parseFilmImport } from "../utils/filmLogic";
+import {
+  diaryToSeenItems,
+  isDiaryCSV,
+  mergeDiaryEntries,
+  mergeSeenImports,
+  parseDiaryCSV,
+  parseFilmImport,
+} from "../utils/filmLogic";
 import type {
+  DiaryEntry,
   FilmItem,
   LibraryState,
   SeenFilmItem,
@@ -11,7 +19,8 @@ interface ArchiveViewProps {
   data: WatchlistDataState;
   lib: LibraryState;
   onImportWatchlist: (films: FilmItem[]) => void;
-  onImportSeen: (films: SeenFilmItem[]) => void;
+  onImportSeen: (films: SeenFilmItem[], diaryEntries?: DiaryEntry[]) => void;
+  onSyncDiaryRss: (username: string) => Promise<{ added: number; total: number }>;
   onClearToEmptyUser: () => void;
   onResetOriginal: () => void;
   onImportBackup: (payload: {
@@ -25,14 +34,18 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
   lib,
   onImportWatchlist,
   onImportSeen,
+  onSyncDiaryRss,
   onClearToEmptyUser,
   onResetOriginal,
   onImportBackup,
 }) => {
   const [notice, setNotice] = useState("");
+  const [rssUser, setRssUser] = useState(lib.letterboxdUser || "");
+  const [rssBusy, setRssBusy] = useState(false);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
 
   const ratedCount = data.seen.filter((x) => x.r != null).length;
+  const diaryCount = (lib.diary || []).length;
 
   const handleWatchFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,15 +69,30 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    let combined: SeenFilmItem[] = data.custom ? [...data.seen] : [];
+    let combinedSeen: SeenFilmItem[] = data.custom ? [...data.seen] : [];
+    let combinedDiary: DiaryEntry[] = data.custom ? [...(lib.diary || [])] : [];
     let importedTotal = 0;
+    let diaryImportedCount = 0;
 
     for (const file of files) {
       const text = await file.text();
+      if (isDiaryCSV(text)) {
+        const diaryParsed = parseDiaryCSV(text);
+        if (diaryParsed.length > 0) {
+          diaryImportedCount += diaryParsed.length;
+          importedTotal += diaryParsed.length;
+          combinedDiary = mergeDiaryEntries(combinedDiary, diaryParsed);
+          combinedSeen = mergeSeenImports(
+            combinedSeen,
+            diaryToSeenItems(diaryParsed)
+          );
+          continue;
+        }
+      }
       const parsed = parseFilmImport(text);
       if (parsed.length > 0) {
         importedTotal += parsed.length;
-        combined = mergeSeenImports(combined, parsed);
+        combinedSeen = mergeSeenImports(combinedSeen, parsed);
       }
     }
 
@@ -73,14 +101,40 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
       return;
     }
 
-    onImportSeen(combined);
-    const ratedAfter = combined.filter((x) => x.r != null).length;
+    onImportSeen(combinedSeen, diaryImportedCount > 0 ? combinedDiary : undefined);
+    const ratedAfter = combinedSeen.filter((x) => x.r != null).length;
+    const diaryNote =
+      diaryImportedCount > 0
+        ? ` e ${combinedDiary.length} visioni nel Diario`
+        : "";
     setNotice(
       data.custom
-        ? `Lista visti aggiornata: ${combined.length} film totali (${ratedAfter} con voto).`
-        : `Profilo personale avviato con ${combined.length} film visti (${ratedAfter} con voto). I dati precaricati sono stati rimossi.`
+        ? `Lista visti aggiornata: ${combinedSeen.length} film totali (${ratedAfter} con voto)${diaryNote}.`
+        : `Profilo personale avviato con ${combinedSeen.length} film visti (${ratedAfter} con voto)${diaryNote}. I dati precaricati sono stati rimossi.`
     );
     e.target.value = "";
+  };
+
+  const handleRssSync = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = rssUser.trim().replace(/^@/, "");
+    if (!clean || rssBusy) return;
+    setRssBusy(true);
+    setNotice("");
+    try {
+      const res = await onSyncDiaryRss(clean);
+      setNotice(
+        `Sync RSS completato per @${clean}: ${res.total} log recenti letti (${res.added} nuove visioni aggiunte al Diario).`
+      );
+    } catch (err) {
+      setNotice(
+        err instanceof Error
+          ? err.message
+          : "Impossibile sincronizzare il feed RSS di Letterboxd."
+      );
+    } finally {
+      setRssBusy(false);
+    }
   };
 
   const handleExport = () => {
@@ -134,6 +188,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
               Watchlist: {data.watch.length} film
               {(lib.add || []).length > 0 ? ` (+${lib.add!.length} aggiunti)` : ""} · Visti:{" "}
               {data.seen.length} ({ratedCount} con voto)
+              {diaryCount > 0 ? ` · Diario: ${diaryCount} log` : ""}
             </p>
           </div>
           <span className="font-mono text-xs font-medium text-[#2563EB] dark:text-[#60A5FA]">
@@ -144,11 +199,11 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
         <div className="mb-5 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-4 text-xs leading-relaxed text-slate-600 dark:border-slate-800 dark:bg-[#0B0E14] dark:text-slate-400">
           {!data.custom ? (
             <p>
-              Stai visualizzando la libreria precaricata. Se vuoi usare i tuoi dati Letterboxd, carica i tuoi CSV qui sotto (i dati precaricati e il profilo gusti verranno sostituiti automaticamente in automatico) oppure svuota tutto prima di iniziare.
+              Stai visualizzando la libreria precaricata. Se vuoi usare i tuoi dati Letterboxd, carica i tuoi CSV qui sotto (i dati precaricati e il profilo gusti verranno sostituiti automaticamente) oppure svuota tutto prima di iniziare.
             </p>
           ) : (
             <p>
-              Stai usando la tua libreria personale salvata in questo browser. Puoi caricare contemporaneamente <span className="font-mono text-slate-800 dark:text-slate-200">watched.csv</span> e <span className="font-mono text-slate-800 dark:text-slate-200">ratings.csv</span> esportati da Letterboxd per unire automaticamente film visti e voti.
+              Stai usando la tua libreria personale salvata in questo browser. Puoi caricare contemporaneamente <span className="font-mono text-slate-800 dark:text-slate-200">watched.csv</span>, <span className="font-mono text-slate-800 dark:text-slate-200">ratings.csv</span> e <span className="font-mono text-slate-800 dark:text-slate-200">diary.csv</span> per unire film visti, voti e calendario delle visioni.
             </p>
           )}
           <p className="mt-1.5 text-slate-500 dark:text-slate-400">
@@ -178,7 +233,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
               htmlFor="fs-upload"
               className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
             >
-              2. Film visti e voti (`watched.csv` e/o `ratings.csv`, anche insieme)
+              2. Visti, voti e diario (`watched.csv`, `ratings.csv`, `diary.csv`)
             </label>
             <input
               id="fs-upload"
@@ -190,6 +245,37 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
             />
           </div>
         </div>
+
+        <form
+          onSubmit={handleRssSync}
+          className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-4 dark:border-slate-800 dark:bg-[#0B0E14]"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              Sync rapido Diario via RSS Letterboxd
+            </div>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Aggiorna gli ultimi log (data, voto, rewatch e locandina) dal profilo pubblico senza riesportare lo zip.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={rssUser}
+              onChange={(e) => setRssUser(e.target.value)}
+              placeholder="username Letterboxd"
+              aria-label="Username Letterboxd"
+              className="w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#131722] dark:text-slate-100 dark:placeholder:text-slate-500"
+            />
+            <button
+              type="submit"
+              disabled={rssBusy || !rssUser.trim()}
+              className="rounded-lg bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+            >
+              {rssBusy ? "Sincronizzo…" : "Sincronizza RSS"}
+            </button>
+          </div>
+        </form>
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <button

@@ -2,10 +2,30 @@ import {
   getCachedPreview,
   setCachedPreview,
 } from "./posterCache";
-import type { FilmItem, FilmPreviewData } from "../types";
+import type { DiaryEntry, FilmItem, FilmPreviewData } from "../types";
 
 export interface AIError extends Error {
   code?: string;
+}
+
+export async function syncLetterboxdDiary(username: string): Promise<{
+  user: string;
+  entries: DiaryEntry[];
+  fetchedAt: number;
+}> {
+  const clean = username.trim().replace(/^@/, "");
+  const res = await fetch(
+    `/api/letterboxd/diary?user=${encodeURIComponent(clean)}`
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Errore sincronizzazione (${res.status})`);
+  }
+  return {
+    user: String(data.user || clean),
+    entries: Array.isArray(data.entries) ? data.entries : [],
+    fetchedAt: Number(data.fetchedAt) || Date.now(),
+  };
 }
 
 export function preloadPosterImage(url?: string | null): void {

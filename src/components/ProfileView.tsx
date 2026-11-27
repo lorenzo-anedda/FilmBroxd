@@ -490,6 +490,7 @@ Rispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogn
       <ProfileStats
         allSeen={allSeen}
         meta={lib.meta}
+        diary={lib.diary}
         aiAvailable={aiAvailable}
         busyPeople={busyPeople}
         peopleProgress={peopleProgress}
