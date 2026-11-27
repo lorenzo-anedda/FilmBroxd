@@ -8,9 +8,65 @@ import {
 } from "../constants/filters";
 import type { EngineMode, RiskMode } from "../types";
 
+export interface EveningPreset {
+  id: string;
+  label: string;
+  detail: string;
+  moods: string[];
+  risk: RiskMode;
+  durMin: number;
+  durMax: number;
+}
+
+export const EVENING_PRESETS: EveningPreset[] = [
+  {
+    id: "weeknight",
+    label: "Infrasettimanale",
+    detail: "≤ 100 min",
+    moods: ["Da solo", "Leggero"],
+    risk: "",
+    durMin: 40,
+    durMax: 100,
+  },
+  {
+    id: "saturday",
+    label: "Sabato intenso",
+    detail: "Osare",
+    moods: ["Intenso", "Cervellotico"],
+    risk: "bold",
+    durMin: 40,
+    durMax: 210,
+  },
+  {
+    id: "duo",
+    label: "In due leggero",
+    detail: "Sul sicuro",
+    moods: ["In due", "Divertente", "Leggero"],
+    risk: "safe",
+    durMin: 40,
+    durMax: 130,
+  },
+  {
+    id: "classic",
+    label: "Classico d’autore",
+    detail: "Profondo",
+    moods: ["Classico", "Commovente"],
+    risk: "",
+    durMin: 40,
+    durMax: 210,
+  },
+];
+
+const COMPANION_OPTIONS = ["Da solo", "In due", "Con amici"] as const;
+const CORE_MOODS = MOODS.filter(
+  (m) => !(COMPANION_OPTIONS as readonly string[]).includes(m)
+);
+
 interface EveningControlsProps {
   selectedMoods: Set<string>;
   onToggleMood: (mood: string) => void;
+  onSelectCompanion: (companion: string) => void;
+  onApplyPreset: (preset: EveningPreset) => void;
   partnerTaste: string;
   onChangePartnerTaste: (value: string) => void;
   risk: RiskMode;
@@ -44,6 +100,8 @@ interface EveningControlsProps {
 export const EveningControls: React.FC<EveningControlsProps> = ({
   selectedMoods,
   onToggleMood,
+  onSelectCompanion,
+  onApplyPreset,
   partnerTaste,
   onChangePartnerTaste,
   risk,
@@ -77,35 +135,114 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
   const rightPct = ((durMax - 40) / 170) * 100;
   const fillWidthPct = Math.max(0, rightPct - leftPct);
 
-  return (
-    <section className="space-y-6 lg:col-span-5">
-      <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900 text-balance sm:text-4xl dark:text-white">
-          Cosa guardiamo stasera?
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-          Dalla tua watchlist, in base ai tuoi gusti e a come stai adesso.
-        </p>
-      </div>
+  const hasAnyResettable =
+    selectedMoods.size > 0 ||
+    activeFilterGroups > 0 ||
+    risk !== "" ||
+    ctxText.trim().length > 0;
 
+  return (
+    <aside className="lg:col-span-5 lg:sticky lg:top-20">
       <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 dark:border-slate-800 dark:bg-[#131722]">
-        <div>
-          <div className="mb-2.5 flex items-baseline justify-between">
+        {/* Quick presets */}
+        <div className="pb-5">
+          <div className="mb-2.5 flex items-baseline justify-between gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Mood serata
+              Serate tipo
             </span>
-            {selectedMoods.size > 0 && (
+            {hasAnyResettable && (
               <button
                 type="button"
                 onClick={onResetAllFilters}
-                className="text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                className="text-xs font-medium text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-slate-100"
               >
                 Azzera tutto
               </button>
             )}
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            {EVENING_PRESETS.map((preset) => {
+              const isMatch =
+                preset.risk === risk &&
+                preset.durMin === durMin &&
+                preset.durMax === durMax &&
+                preset.moods.every((m) => selectedMoods.has(m)) &&
+                selectedMoods.size === preset.moods.length;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => onApplyPreset(preset)}
+                  className={`flex items-baseline justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-colors ${
+                    isMatch
+                      ? "border-[#2563EB] bg-[#2563EB]/[0.07] text-[#1D4ED8] dark:border-[#3B82F6] dark:bg-[#3B82F6]/[0.12] dark:text-[#60A5FA]"
+                      : "border-slate-200 bg-[#F5F7FA] text-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700/80 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="truncate text-xs font-semibold">
+                    {preset.label}
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                    {preset.detail}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Dedicated Companion selector */}
+        <div className="border-t border-slate-200/80 pt-5 dark:border-slate-800">
+          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Con chi guardi
+          </span>
+          <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-[#F5F7FA] p-1 dark:border-slate-800 dark:bg-[#0B0E14]">
+            {COMPANION_OPTIONS.map((comp) => {
+              const active = selectedMoods.has(comp);
+              return (
+                <button
+                  key={comp}
+                  type="button"
+                  onClick={() => onSelectCompanion(comp)}
+                  className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                    active
+                      ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  }`}
+                >
+                  {comp}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedMoods.has("In due") && (
+            <div className="mt-4">
+              <label
+                htmlFor="partner-taste"
+                className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400"
+              >
+                Gusti dell’altra persona (salvati)
+              </label>
+              <textarea
+                id="partner-taste"
+                rows={2}
+                value={partnerTaste}
+                onChange={(e) => onChangePartnerTaste(e.target.value)}
+                placeholder="Es. Marta: ama commedie e thriller, no horror o film troppo lenti."
+                className="w-full rounded-xl border border-slate-200 bg-[#F5F7FA] p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#3B82F6]"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Core Mood 3x3 grid */}
+        <div className="mt-5 border-t border-slate-200/80 pt-5 dark:border-slate-800">
+          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Come ti senti
+          </span>
           <div className="grid grid-cols-3 gap-2">
-            {MOODS.map((m) => {
+            {CORE_MOODS.map((m) => {
               const on = selectedMoods.has(m);
               return (
                 <button
@@ -125,25 +262,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           </div>
         </div>
 
-        {selectedMoods.has("In due") && (
-          <div className="mt-5 border-t border-slate-200/80 pt-5 dark:border-slate-800">
-            <label
-              htmlFor="partner-taste"
-              className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-            >
-              Gusti dell’altra persona (salvati)
-            </label>
-            <textarea
-              id="partner-taste"
-              rows={3}
-              value={partnerTaste}
-              onChange={(e) => onChangePartnerTaste(e.target.value)}
-              placeholder="Es. Marta: ama commedie romantiche e thriller, odia horror e film lenti. Ha adorato Parasite e Amélie."
-              className="w-full rounded-xl border border-slate-200 bg-[#F5F7FA] p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#3B82F6]"
-            />
-          </div>
-        )}
-
+        {/* Risk */}
         <div className="mt-5 border-t border-slate-200/80 pt-5 dark:border-slate-800">
           <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Voglia di
@@ -175,6 +294,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           </div>
         </div>
 
+        {/* Free text context */}
         <div className="mt-5 border-t border-slate-200/80 pt-5 dark:border-slate-800">
           <label
             htmlFor="evening-context"
@@ -184,14 +304,15 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           </label>
           <textarea
             id="evening-context"
-            rows={3}
+            rows={2}
             value={ctxText}
             onChange={(e) => onChangeCtxText(e.target.value)}
-            placeholder="Es. Ho 2 ore, sono stanco, voglio qualcosa di leggero ma non stupido. Siamo in due, no horror."
+            placeholder="Es. Ho 2 ore, qualcosa di teso o brillante ma non pesante…"
             className="w-full rounded-xl border border-slate-200 bg-[#F5F7FA] p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#3B82F6]"
           />
         </div>
 
+        {/* Collapsible filters */}
         <div className="mt-5 border-t border-slate-200/80 pt-4 dark:border-slate-800">
           <button
             type="button"
@@ -200,7 +321,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           >
             <span className="inline-flex items-center gap-2">
               <SlidersHorizontal className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-              <span>Filtri</span>
+              <span>Filtri avanzati</span>
               <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
                 ·{" "}
                 {activeFilterGroups
@@ -375,6 +496,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           )}
         </div>
 
+        {/* Engine switch & Primary CTA */}
         <div className="mt-6 space-y-3 border-t border-slate-200/80 pt-5 dark:border-slate-800">
           <div className="flex items-center justify-between gap-3 text-xs">
             <span className="text-slate-500 dark:text-slate-400">
@@ -427,6 +549,6 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           )}
         </div>
       </div>
-    </section>
+    </aside>
   );
 };

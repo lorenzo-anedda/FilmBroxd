@@ -35,7 +35,10 @@ import { OUTCOMES } from "./constants/filters";
 import { checkAIHealth, formatAIError, generateWithAI } from "./utils/aiClient";
 import { useFilmPreviews } from "./hooks/useFilmPreviews";
 import { HeaderBar } from "./components/HeaderBar";
-import { EveningControls } from "./components/EveningControls";
+import {
+  EveningControls,
+  type EveningPreset,
+} from "./components/EveningControls";
 import { RecommendationsStage } from "./components/RecommendationsStage";
 import { FilmPreviewModal } from "./components/FilmPreviewModal";
 import { CineSfidaView } from "./components/CineSfidaView";
@@ -252,6 +255,53 @@ export default function App() {
     setRisk("");
     setDurMin(40);
     setDurMax(210);
+    setCtxText("");
+  };
+
+  const handleSelectCompanion = (companion: string) => {
+    const companions = ["Da solo", "In due", "Con amici"];
+    setSelectedMoods((prev) => {
+      const next = new Set(prev);
+      const wasActive = next.has(companion);
+      for (const c of companions) next.delete(c);
+      if (!wasActive) next.add(companion);
+      return next;
+    });
+  };
+
+  const handleApplyPreset = (preset: EveningPreset) => {
+    setSelectedMoods(new Set(preset.moods));
+    setRisk(preset.risk);
+    setDurMin(preset.durMin);
+    setDurMax(preset.durMax);
+  };
+
+  const handleSurprisePick = () => {
+    const pool = filteredBase.length > 0 ? filteredBase : fullWatchlist;
+    if (!pool.length) {
+      setStageError("Nessun film disponibile con questi filtri.");
+      return;
+    }
+    const ranked = rankedPool(pool, allSeen, lib, selectedMoods);
+    const topSlice = ranked.slice(0, Math.min(12, ranked.length));
+    const chosen = topSlice[Math.floor(Math.random() * topSlice.length)]?.x;
+    if (!chosen) return;
+    const m = lib.meta[filmKey(chosen)];
+    const pick = makePickObj(
+      chosen,
+      {
+        film: canonicalLabel(chosen),
+        durata: m?.m ? `${m.m} min` : "",
+        regista: m?.d || "",
+        perche:
+          "Estratto tra i titoli della tua watchlist più in sintonia con i criteri di stasera.",
+      },
+      false
+    );
+    setStageError("");
+    setStageNotice("Sorpresa dalla watchlist pronta.");
+    setPicks([pick]);
+    autoFetchMeta(chosen);
   };
 
   const makePickObj = (
@@ -1004,71 +1054,128 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         {tab === "serata" && (
-          <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-10">
-            <EveningControls
-              selectedMoods={selectedMoods}
-              onToggleMood={(m) => toggleSet(setSelectedMoods, m)}
-              partnerTaste={lib.partner || ""}
-              onChangePartnerTaste={(val) =>
-                updateLib((prev) => ({ ...prev, partner: val }))
-              }
-              risk={risk}
-              onChangeRisk={setRisk}
-              ctxText={ctxText}
-              onChangeCtxText={setCtxText}
-              filtersOpen={filtersOpen}
-              onToggleFiltersOpen={() => setFiltersOpen((o) => !o)}
-              durMin={durMin}
-              durMax={durMax}
-              onChangeDurMin={setDurMin}
-              onChangeDurMax={setDurMax}
-              durationLabel={durationLabel}
-              genreSel={genreSel}
-              onToggleGenre={(val) => toggleSet(setGenreSel, val)}
-              countrySel={countrySel}
-              onToggleCountry={(val) => toggleSet(setCountrySel, val)}
-              decadeSel={decadeSel}
-              onToggleDecade={(val) => toggleSet(setDecadeSel, val)}
-              activeFilterGroups={activeFilterGroups}
-              filteredCount={filteredBase.length}
-              unknownMetaCount={unknownMetaCount}
-              onResetAllFilters={resetAllFilters}
-              aiAvailable={aiAvailable}
-              engineMode={engineMode}
-              onChangeEngineMode={setEngineMode}
-              loading={loading}
-              onRecommend={handleRecommend}
-            />
+          <div className="space-y-8">
+            <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200/80 pb-6 dark:border-slate-800">
+              <div>
+                <div className="font-mono text-xs uppercase tracking-wider text-[#2563EB] dark:text-[#60A5FA]">
+                  {(() => {
+                    const now = new Date();
+                    const day = now.toLocaleDateString("it-IT", {
+                      weekday: "long",
+                    });
+                    const hr = now.getHours();
+                    const part =
+                      hr < 14
+                        ? "mattinata di cinema"
+                        : hr < 18
+                        ? "pomeriggio di cinema"
+                        : "serata cinema";
+                    return `${day.charAt(0).toUpperCase() + day.slice(1)} · ${part}`;
+                  })()}
+                </div>
+                <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight text-slate-900 text-balance sm:text-4xl dark:text-white">
+                  Cosa guardiamo stasera?
+                </h1>
+              </div>
 
-            <RecommendationsStage
-              pendingItems={pendingItems}
-              onOutcome={handleOutcome}
-              onDeferPending={handleDeferPending}
-              onDismissHistory={handleDismissHistory}
-              stageError={stageError}
-              stageNotice={stageNotice}
-              loading={loading}
-              picks={picks}
-              watchlistCount={fullWatchlist.length}
-              seenCount={allSeen.length}
-              avgRating={avgRating}
-              profile={lib.profile}
-              onOpenProfile={() => setTab("profilo")}
-              onOpenArchive={() => setTab("archivio")}
-              aiEnabled={aiAvailable && engineMode === "ai"}
-              previews={previews}
-              onRequestPreview={requestPreview}
-              onOpenPreview={setPreviewPick}
-              onWatchTonight={handleWatchTonight}
-              onReplace={handleReplace}
-              onLater={handleLater}
-              onNever={handleNever}
-              onExplainWhy={handleExplainWhy}
-              onSimilar={handleSimilar}
-              onRateSeen={handleRateSeen}
-              onAddExtraToList={handleAddExtraToList}
-              onNoteReason={handleNoteReason}
-            />
+              {(selectedMoods.size > 0 ||
+                activeFilterGroups > 0 ||
+                risk !== "") && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    Criteri:
+                  </span>
+                  <span>
+                    {[
+                      ...Array.from(selectedMoods),
+                      ...(minMinutes || maxMinutes ? [durationLabel] : []),
+                      ...(risk === "safe"
+                        ? ["Sul sicuro"]
+                        : risk === "bold"
+                        ? ["Osare"]
+                        : []),
+                    ].join(" · ") || `${activeFilterGroups} filtri attivi`}
+                  </span>
+                </div>
+              )}
+            </header>
+
+            <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-10">
+              <EveningControls
+                selectedMoods={selectedMoods}
+                onToggleMood={(m) => toggleSet(setSelectedMoods, m)}
+                onSelectCompanion={handleSelectCompanion}
+                onApplyPreset={handleApplyPreset}
+                partnerTaste={lib.partner || ""}
+                onChangePartnerTaste={(val) =>
+                  updateLib((prev) => ({ ...prev, partner: val }))
+                }
+                risk={risk}
+                onChangeRisk={setRisk}
+                ctxText={ctxText}
+                onChangeCtxText={setCtxText}
+                filtersOpen={filtersOpen}
+                onToggleFiltersOpen={() => setFiltersOpen((o) => !o)}
+                durMin={durMin}
+                durMax={durMax}
+                onChangeDurMin={setDurMin}
+                onChangeDurMax={setDurMax}
+                durationLabel={durationLabel}
+                genreSel={genreSel}
+                onToggleGenre={(val) => toggleSet(setGenreSel, val)}
+                countrySel={countrySel}
+                onToggleCountry={(val) => toggleSet(setCountrySel, val)}
+                decadeSel={decadeSel}
+                onToggleDecade={(val) => toggleSet(setDecadeSel, val)}
+                activeFilterGroups={activeFilterGroups}
+                filteredCount={filteredBase.length}
+                unknownMetaCount={unknownMetaCount}
+                onResetAllFilters={resetAllFilters}
+                aiAvailable={aiAvailable}
+                engineMode={engineMode}
+                onChangeEngineMode={setEngineMode}
+                loading={loading}
+                onRecommend={handleRecommend}
+              />
+
+              <RecommendationsStage
+                pendingItems={pendingItems}
+                onOutcome={handleOutcome}
+                onDeferPending={handleDeferPending}
+                onDismissHistory={handleDismissHistory}
+                stageError={stageError}
+                stageNotice={stageNotice}
+                loading={loading}
+                picks={picks}
+                watchlistPool={fullWatchlist}
+                filteredPool={filteredBase}
+                metaMap={lib.meta}
+                watchlistCount={fullWatchlist.length}
+                seenCount={allSeen.length}
+                avgRating={avgRating}
+                profile={lib.profile}
+                onOpenProfile={() => setTab("profilo")}
+                onOpenArchive={() => setTab("archivio")}
+                onSurprisePick={handleSurprisePick}
+                onClearPicks={() => {
+                  setPicks([]);
+                  setStageNotice("");
+                }}
+                aiEnabled={aiAvailable && engineMode === "ai"}
+                previews={previews}
+                onRequestPreview={requestPreview}
+                onOpenPreview={setPreviewPick}
+                onWatchTonight={handleWatchTonight}
+                onReplace={handleReplace}
+                onLater={handleLater}
+                onNever={handleNever}
+                onExplainWhy={handleExplainWhy}
+                onSimilar={handleSimilar}
+                onRateSeen={handleRateSeen}
+                onAddExtraToList={handleAddExtraToList}
+                onNoteReason={handleNoteReason}
+              />
+            </div>
           </div>
         )}
 

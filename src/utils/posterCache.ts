@@ -1,6 +1,6 @@
 import type { FilmPreviewData } from "../types";
 
-const POSTER_CACHE_KEY = "fb_preview_cache_v1";
+const POSTER_CACHE_KEY = "fb_preview_cache_v2";
 const MAX_CACHE_ENTRIES = 200;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
