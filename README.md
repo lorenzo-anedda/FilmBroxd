@@ -1,6 +1,6 @@
 # FilmBroxd
 
-Consulente cinematografico personale per scegliere cosa guardare dalla propria watchlist Letterboxd in base a mood, filtri, storico delle visioni e gusti personali, con preview automatica di locandina e sinossi e supporto AI Gemini (con punteggio locale come fallback).
+Consulente cinematografico personale per scegliere cosa guardare dalla propria watchlist Letterboxd in base a mood, filtri, storico delle visioni e gusti personali, con locandine recuperate da Letterboxd/IMDb, sinossi in italiano (Wikipedia/AI) e supporto Gemini (con punteggio locale come fallback).
 
 ## Struttura del progetto
 
@@ -13,7 +13,7 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │   │   └── preview.ts                # Endpoint /api/film/preview
 │   └── services/
 │       ├── geminiService.ts          # Client Gemini, retry esponenziale e gestione errori
-│       └── filmPreviewService.ts     # Ricerca locandina e sinossi su Wikipedia + cache
+│       └── filmPreviewService.ts     # Locandine Letterboxd/IMDb + sinossi Wikipedia/AI + cache
 ├── src/
 │   ├── App.tsx                       # Orchestrazione principale e viste tab
 │   ├── main.tsx                      # Mount React
@@ -40,8 +40,8 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │       ├── HeaderBar.tsx             # Header sticky con logo proiettore animato e navigazione
 │       ├── ProjectorLogo.tsx         # Logo SVG animato del proiettore cinematografico
 │       ├── PosterImage.tsx           # Lazy loading locandine con IntersectionObserver e placeholder colore
-│       ├── EveningControls.tsx       # Pannello mood, contesto, filtri e motore di scelta
-│       ├── RecommendationsStage.tsx  # Colonna risultati e riepilogo archivio
+│       ├── EveningControls.tsx       # Pannello preset serata, compagnia, mood, filtri e motore di scelta
+│       ├── RecommendationsStage.tsx  # Colonna risultati, vetrina locandine watchlist e stato vuoto
 │       ├── PickCard.tsx              # Scheda singolo film con locandina, trama e azioni
 │       ├── FilmPreviewModal.tsx      # Modale anteprima ingrandita + link Letterboxd/Wiki
 │       ├── CineSfidaView.tsx         # Modalità gioco ReelRouette (Quarti o Ottavi con locandine)
@@ -111,9 +111,10 @@ Chi scarica o clona il progetto può sostituirla completamente con i propri dati
 
 ## Funzionalità principali
 
-- **Cosa guardiamo stasera**: scegli mood, compagnia, durata, generi, paesi, decenni e livello di rischio per ottenere 5 proposte dalla watchlist + 1 consiglio extra calibrato sul tuo gusto.
-- **ReelRouette**: torneo a eliminazione diretta (8 film dai Quarti o 16 film dagli Ottavi) per decidere cosa guardare sfidando due titoli alla volta con locandine e scelta rapida da tastiera (`←`/`1`, `→`/`2`).
-- **Profilo**: statistiche visive su media voti, distribuzione mezze stelle, decenni preferiti, registi e attori più visti/amati, più sintesi testuale dei gusti.
+- **Serata (Cosa guardiamo stasera)**: preset rapidi per iniziare subito, selezione compagnia, griglia mood, filtri per durata/generi/paesi/epoche/rischio, pesca casuale **Sorprendimi**, vetrina locandine della watchlist e 5 proposte + 1 consiglio extra calibrato sul tuo gusto.
+- **ReelRouette (CineSfida)**: torneo a eliminazione diretta (8 film dai Quarti o 16 film dagli Ottavi) con filtri dedicati sul pool iniziale (ricerca, durata, generi, decenni, filtri Serata) e scelta rapida da tastiera (`←`/`1`, `→`/`2`).
+- **Locandine & Anteprime**: recupero automatico delle locandine in parallelo da **Letterboxd** e **IMDb** (con verifica su titolo, anno e regista e fallback su Wikipedia), accompagnato da sinossi in italiano da Wikipedia o Gemini.
+- **Profilo**: statistiche visive su media voti, distribuzione mezze stelle, decenni preferiti, registi e attori più visti/amati (escludendo i cast dei soli film d'animazione così emergono gli attori tradizionali), lista ispezionabile dei film attribuiti con rianalisi mirata e sintesi testuale dei gusti.
 - **Cronologia & Archivio**: tracciamento delle serate precedenti, export/import backup completo `.json` e gestione CSV Letterboxd.
 
 ## Licenza
