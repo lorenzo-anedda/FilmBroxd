@@ -1,16 +1,21 @@
-import React, { useMemo, useState } from "react";
-import { ExternalLink, RefreshCw, RotateCcw, Search } from "lucide-react";
+import React, { useMemo, useRef, useState } from "react";
+import { ExternalLink, RefreshCw, RotateCcw, Search, Upload } from "lucide-react";
 import { fetchFilmPreview } from "../utils/aiClient";
+import { parseDiaryCSV, parseFilmImport } from "../utils/parsers";
 import { getCachedPreview } from "../utils/posterCache";
 import { PosterImage } from "./PosterImage";
-import type { DiaryEntry, FilmMeta } from "../types";
+import type { DiaryEntry, FilmMeta, RssSyncResult } from "../types";
 
 interface DiaryTabProps {
   diary: DiaryEntry[];
   letterboxdUser: string;
   diarySyncedAt?: number;
   meta: Record<string, FilmMeta>;
-  onSyncRss: (username: string) => Promise<{ added: number; total: number }>;
+  onSyncRss: (
+    username: string,
+    options?: { onlyNew?: boolean }
+  ) => Promise<RssSyncResult>;
+  onImportDiaryCsv: (entries: DiaryEntry[]) => number;
   onOpenArchive?: () => void;
 }
 
@@ -50,12 +55,15 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
   diarySyncedAt,
   meta,
   onSyncRss,
+  onImportDiaryCsv,
   onOpenArchive,
 }) => {
   const [userInput, setUserInput] = useState<string>(letterboxdUser || "");
+  const [onlyNewFilms, setOnlyNewFilms] = useState<boolean>(true);
   const [syncBusy, setSyncBusy] = useState<boolean>(false);
   const [syncMsg, setSyncMsg] = useState<string>("");
   const [syncErr, setSyncErr] = useState<string>("");
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
 
   const [yearFilter, setYearFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("all");
@@ -136,10 +144,26 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
     setSyncErr("");
     setSyncMsg("");
     try {
-      const res = await onSyncRss(clean);
-      setSyncMsg(
-        `Sincronizzati ${res.total} log recenti da @${clean} (${res.added} nuove visioni aggiunte).`
-      );
+      const res = await onSyncRss(clean, { onlyNew: onlyNewFilms });
+      if (res.onlyNew && res.added === 0) {
+        setSyncMsg(
+          `Nessun nuovo film da aggiungere da @${clean}: tutti i ${res.totalRss} titoli del feed RSS sono già presenti nella tua lista.`
+        );
+      } else {
+        const skippedNote =
+          res.onlyNew && res.skippedAlreadyLoaded > 0
+            ? ` (${res.skippedAlreadyLoaded} già in lista ignorati)`
+            : "";
+        const actorsNote =
+          res.enrichedActorsCount > 0
+            ? ` · registi e attori reali analizzati per ${res.enrichedActorsCount} nuovi film`
+            : "";
+        setSyncMsg(
+          `Sync completato da @${clean}: ${res.added} ${
+            res.added === 1 ? "nuovo film aggiunto" : "nuovi film aggiunti"
+          } su ${res.totalRss} nel feed${skippedNote}${actorsNote}. Lista precaricata e attori precedenti mantenuti intatti.`
+        );
+      }
     } catch (err) {
       setSyncErr(
         err instanceof Error ? err.message : "Errore nella sincronizzazione RSS."
@@ -147,6 +171,30 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
     } finally {
       setSyncBusy(false);
     }
+  };
+
+  const handleDiaryCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSyncErr("");
+    setSyncMsg("");
+    const text = await file.text();
+    const parsed = parseDiaryCSV(text);
+    if (!parsed.length) {
+      const fallback = parseFilmImport(text);
+      setSyncErr(
+        fallback.length > 0
+          ? "Questo file non ha la colonna «Watched Date» di diary.csv: caricalo dalla scheda Archivio come watched.csv/ratings.csv."
+          : "Nessuna voce valida trovata nel file diary.csv."
+      );
+      e.target.value = "";
+      return;
+    }
+    const totalAfter = onImportDiaryCsv(parsed);
+    setSyncMsg(
+      `Importato ${parsed.length} visioni da diary.csv (${totalAfter} log totali nel Diario). Ora il sync RSS aggiungerà solo i nuovi film.`
+    );
+    e.target.value = "";
   };
 
   const requestPosterIfNeeded = (entry: DiaryEntry) => {
@@ -174,45 +222,73 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* Quick RSS sync bar */}
+      {/* Quick RSS sync + full diary.csv import bar */}
       <form
         onSubmit={handleRssSubmit}
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-3.5 dark:border-slate-800 dark:bg-[#0B0E14]"
+        className="space-y-3 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-3.5 dark:border-slate-800 dark:bg-[#0B0E14]"
       >
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-            Sync rapido RSS Letterboxd
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              Sincronizza solo i film nuovi da Letterboxd
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Mantiene intatti lista precaricata e attori già analizzati: legge gli ultimi ~50 log pubblici e aggiunge solo i titoli che non hai ancora caricato (analizzandone automaticamente regista e attori)
+              {diarySyncedAt
+                ? ` · ultimo sync ${new Date(diarySyncedAt).toLocaleDateString(
+                    "it-IT",
+                    { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
+                  )}`
+                : ""}
+              .
+            </p>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Importa automaticamente gli ultimi film loggati dal tuo profilo pubblico
-            {diarySyncedAt
-              ? ` · ultimo sync ${new Date(diarySyncedAt).toLocaleDateString(
-                  "it-IT",
-                  { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
-                )}`
-              : ""}
-            .
-          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleDiaryCsvFile}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => csvInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#131722] dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Carica diary.csv
+            </button>
+
+            <input
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              placeholder="username Letterboxd"
+              aria-label="Username Letterboxd"
+              className="w-40 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#131722] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#3B82F6]"
+            />
+            <button
+              type="submit"
+              disabled={syncBusy || !userInput.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${syncBusy ? "animate-spin" : ""}`} />
+              {syncBusy ? "Sincronizzo…" : "Sincronizza RSS"}
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
           <input
-            type="text"
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            placeholder="username Letterboxd"
-            aria-label="Username Letterboxd"
-            className="w-44 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#131722] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#3B82F6]"
+            type="checkbox"
+            checked={onlyNewFilms}
+            onChange={(e) => setOnlyNewFilms(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB] dark:border-slate-600 dark:bg-[#131722]"
           />
-          <button
-            type="submit"
-            disabled={syncBusy || !userInput.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${syncBusy ? "animate-spin" : ""}`} />
-            {syncBusy ? "Sincronizzo…" : "Sincronizza"}
-          </button>
-        </div>
+          Importa solo i film nuovi non ancora presenti nella tua lista
+        </label>
       </form>
 
       {(syncMsg || syncErr) && (
@@ -435,14 +511,21 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
           )}
 
           {filtered.length > visibleCap && (
-            <div className="border-t border-slate-200/80 pt-4 text-center dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-200/80 pt-4 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => setVisibleCap((c) => c + 30)}
+                onClick={() => setVisibleCap((c) => c + 50)}
                 className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-4 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
               >
-                Mostra altri ({Math.min(30, filtered.length - visibleCap)} di{" "}
+                Mostra altri ({Math.min(50, filtered.length - visibleCap)} di{" "}
                 {filtered.length - visibleCap})
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibleCap(filtered.length)}
+                className="rounded-lg border border-slate-200 bg-transparent px-4 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                Mostra tutti ({filtered.length})
               </button>
             </div>
           )}

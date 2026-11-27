@@ -3,12 +3,15 @@ import {
   canonicalLabel,
   filmKey,
   getAllSeen,
-  normTitle,
   nz,
   parseJsonSafely,
 } from "../utils/filmLogic";
 import { computeProfileStats, isAnimationFilm } from "../utils/profileStats";
 import { formatAIError, generateWithAI } from "../utils/aiClient";
+import {
+  processPeopleBatch,
+  resolveBatchFilm,
+} from "../utils/peopleEnrich";
 import { ProfileStats } from "./ProfileStats";
 import type { FilmItem, FilmMeta, LibraryState, SeenFilmItem } from "../types";
 
@@ -20,55 +23,6 @@ interface ProfileViewProps {
   onUpdateProfile: (profile: string) => void;
   onMergeMeta: (updates: Record<string, FilmMeta>) => void;
   onClearWhy: () => void;
-}
-
-function cleanPeopleValue(val: unknown): string {
-  if (Array.isArray(val)) {
-    return val
-      .map((item) => String(item || "").trim())
-      .filter((item) => item.length > 1 && item.toLowerCase() !== "null")
-      .slice(0, 3)
-      .join(" / ");
-  }
-  const s = String(val || "").trim();
-  if (!s || s.toLowerCase() === "null") return "";
-  return s
-    .split(/[\/,]/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 1 && p.toLowerCase() !== "null")
-    .slice(0, 3)
-    .join(" / ");
-}
-
-function resolveBatchFilm<T extends FilmItem>(
-  batch: T[],
-  item: { i?: unknown; t?: unknown; title?: unknown; film?: unknown },
-  claimedIndices: Set<number>
-): { film: T; idx: number } | null {
-  const numIdx = Number(item.i);
-  if (
-    Number.isInteger(numIdx) &&
-    numIdx >= 0 &&
-    numIdx < batch.length &&
-    !claimedIndices.has(numIdx)
-  ) {
-    claimedIndices.add(numIdx);
-    return { film: batch[numIdx], idx: numIdx };
-  }
-
-  const rawTitle = String(item.t ?? item.title ?? item.film ?? "").trim();
-  if (rawTitle) {
-    const target = normTitle(rawTitle.replace(/\s*\(\d{4}\)\s*$/, ""));
-    const foundIdx = batch.findIndex(
-      (f, idx) => !claimedIndices.has(idx) && normTitle(f.t) === target
-    );
-    if (foundIdx >= 0) {
-      claimedIndices.add(foundIdx);
-      return { film: batch[foundIdx], idx: foundIdx };
-    }
-  }
-
-  return null;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -273,84 +227,6 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
     let excludedAnimOrNoCast = 0;
     const metaSnapshot: Record<string, FilmMeta> = { ...lib.meta };
 
-    const processPeopleBatch = async (batch: SeenFilmItem[]) => {
-      const prompt =
-        `Verifica OGNI film singolarmente. Per ciascuno indica:
-- "g": genere principale in italiano (max 2 separati da /, es. "Animazione / Avventura", "Commedia", "Drammatico")
-- "d": regista originale
-- "a": fino a 3 ATTORI REALI IN CARNE E OSSA separati da " / ".
-REGOLE RIGOROSE:
-1) Per film d'animazione, anime o corti animati NON inserire mai doppiatori o voci: metti OBBLIGATORIAMENTE "a": null (indica però sempre "g" e "d").
-2) Per documentari senza attori metti "a": null.
-3) NON copiare né ripetere mai lo stesso regista o gli stessi attori su altri titoli della lista: se non conosci con certezza assoluta il film, metti null.
-
-Rispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogni indice da 0 a ${batch.length - 1}: [{"i":0,"g":"...","d":"Regista","a":"Attore 1 / Attore 2 / Attore 3"}]\n\n` +
-        batch.map((x, j) => `${j}. ${canonicalLabel(x)}`).join("\n");
-
-      // Use ThinkingLevel.MEDIUM (fast: false) and smaller batches (25) to prevent cross-film hallucinations
-      const raw = await generateWithAI(prompt, {
-        jsonMode: "array",
-        fast: false,
-      });
-
-      const arr = parseJsonSafely<
-        Array<{
-          i?: unknown;
-          t?: unknown;
-          title?: unknown;
-          g?: unknown;
-          d?: unknown;
-          a?: unknown;
-        }>
-      >(raw, "[");
-
-      const claimed = new Set<number>();
-      const updates: Record<string, FilmMeta> = {};
-
-      for (const o of arr) {
-        const resolved = resolveBatchFilm(batch, o, claimed);
-        if (!resolved) continue;
-        const film = resolved.film;
-        const k = filmKey(film);
-        const prev = metaSnapshot[k] || { g: "", m: 0, d: "", c: "" };
-
-        const rawGenre = String(o.g || "").trim();
-        const genre =
-          rawGenre && rawGenre.toLowerCase() !== "null"
-            ? rawGenre
-            : prev.g || "";
-
-        const dir =
-          !forceOverwrite && nz(prev.d) ? prev.d : cleanPeopleValue(o.d);
-
-        const isAnim = /animazion|animat|anime|cartoon/i.test(genre);
-        const act = isAnim
-          ? ""
-          : !forceOverwrite && nz(prev.a)
-          ? prev.a || ""
-          : cleanPeopleValue(o.a);
-
-        const nextMeta: FilmMeta = {
-          g: genre,
-          m: prev.m || 0,
-          d: dir,
-          c: prev.c || "",
-          ...(act ? { a: act } : {}),
-          ...(prev.mc ? { mc: true } : {}),
-        };
-
-        if (dir && (act || isAnim)) {
-          delete nextMeta.pc;
-        }
-
-        updates[k] = nextMeta;
-        metaSnapshot[k] = nextMeta;
-      }
-
-      const omitted = batch.filter((_, idx) => !claimed.has(idx));
-      return { updates, omitted };
-    };
-
     try {
       for (let i = 0; i < queue.length; i += 25) {
         if (stopPeopleRef.current) {
@@ -365,7 +241,9 @@ Rispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogn
           `Analizzo registi e attori reali… ${processed}/${queue.length} film`
         );
 
-        const firstPass = await processPeopleBatch(batch);
+        const firstPass = await processPeopleBatch(batch, metaSnapshot, {
+          forceOverwrite,
+        });
         const combinedUpdates: Record<string, FilmMeta> = {
           ...firstPass.updates,
         };
@@ -376,7 +254,9 @@ Rispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogn
           );
           for (let r = 0; r < firstPass.omitted.length; r += 12) {
             const sub = firstPass.omitted.slice(r, r + 12);
-            const retryPass = await processPeopleBatch(sub);
+            const retryPass = await processPeopleBatch(sub, metaSnapshot, {
+              forceOverwrite,
+            });
             Object.assign(combinedUpdates, retryPass.updates);
           }
         }

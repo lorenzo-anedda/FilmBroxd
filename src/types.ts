@@ -122,3 +122,12 @@ export interface FilmPreviewData {
 export type ActiveTab = "serata" | "cinesfida" | "cronologia" | "profilo" | "archivio";
 export type RiskMode = "" | "safe" | "bold";
 export type EngineMode = "ai" | "local";
+
+export interface RssSyncResult {
+  added: number;
+  skippedAlreadyLoaded: number;
+  totalRss: number;
+  enrichedActorsCount: number;
+  onlyNew: boolean;
+}
+

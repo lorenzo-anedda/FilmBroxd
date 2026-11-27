@@ -27,11 +27,14 @@ import {
   shortlistPool,
 } from "./utils/recommender";
 import {
+  buildFilmMatcher,
   diaryToSeenItems,
+  filterNewDiaryEntries,
   mergeDiaryEntries,
   mergeSeenImports,
   parseJsonSafely,
 } from "./utils/parsers";
+import { enrichNewFilmsWithAI } from "./utils/peopleEnrich";
 import {
   loadInitialDataState,
   loadInitialLibraryState,
@@ -69,6 +72,7 @@ import type {
   OutcomeKey,
   RawRecommendation,
   RiskMode,
+  RssSyncResult,
   SeenFilmItem,
   WatchlistDataState,
 } from "./types";
@@ -1072,38 +1076,93 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
   };
 
   const handleSyncDiaryRss = async (
-    username: string
-  ): Promise<{ added: number; total: number }> => {
+    username: string,
+    options?: { onlyNew?: boolean }
+  ): Promise<RssSyncResult> => {
+    const onlyNew = options?.onlyNew ?? true;
     const res = await syncLetterboxdDiary(username);
-    const switchingFromSeed = !data.custom;
-    const prevDiary = switchingFromSeed ? [] : lib.diary || [];
-    const nextDiary = mergeDiaryEntries(prevDiary, res.entries);
+    const prevDiary = lib.diary || [];
+    const { unseenEntries, skippedAlreadyLoaded } = filterNewDiaryEntries(
+      res.entries,
+      allSeen,
+      prevDiary
+    );
+
+    const entriesToImport = onlyNew ? unseenEntries : res.entries;
+    const nextDiary = entriesToImport.length
+      ? mergeDiaryEntries(prevDiary, entriesToImport)
+      : prevDiary;
     const added = Math.max(0, nextDiary.length - prevDiary.length);
 
-    const incomingSeen = diaryToSeenItems(res.entries);
+    const isNewlyWatched =
+      unseenEntries.length > 0 ? buildFilmMatcher(unseenEntries) : null;
+    const incomingSeen = diaryToSeenItems(entriesToImport);
+
     updateData((prev) => ({
-      watch: switchingFromSeed ? [] : prev.watch,
-      seen: mergeSeenImports(switchingFromSeed ? [] : prev.seen, incomingSeen),
-      shown: switchingFromSeed ? [] : prev.shown,
-      shownX: switchingFromSeed ? [] : prev.shownX,
-      custom: true,
+      ...prev,
+      watch: isNewlyWatched
+        ? prev.watch.filter((w) => !isNewlyWatched(w))
+        : prev.watch,
+      seen: incomingSeen.length
+        ? mergeSeenImports(prev.seen, incomingSeen)
+        : prev.seen,
+      custom: prev.custom || added > 0 || incomingSeen.length > 0,
     }));
 
     updateLib((prev) => ({
-      meta: prev.meta,
-      marks: switchingFromSeed ? {} : prev.marks,
-      profile: switchingFromSeed ? "" : prev.profile,
-      partner: switchingFromSeed ? "" : prev.partner,
-      hist: switchingFromSeed ? [] : prev.hist,
-      add: switchingFromSeed ? [] : prev.add,
-      why: switchingFromSeed ? [] : prev.why,
+      ...prev,
+      add: isNewlyWatched
+        ? (prev.add || []).filter((a) => !isNewlyWatched(a))
+        : prev.add,
       diary: nextDiary,
       letterboxdUser: res.user,
       diarySyncedAt: res.fetchedAt,
       ts: Date.now(),
     }));
 
-    return { added, total: res.entries.length };
+    let enrichedActorsCount = 0;
+    if (aiAvailable && unseenEntries.length > 0) {
+      try {
+        const toEnrich = unseenEntries.slice(0, 25).map((e) => ({
+          t: e.t,
+          y: e.y,
+        }));
+        const enriched = await enrichNewFilmsWithAI(toEnrich, lib.meta);
+        if (Object.keys(enriched.updates).length > 0) {
+          updateLib((prev) => ({
+            ...prev,
+            meta: { ...prev.meta, ...enriched.updates },
+          }));
+        }
+        enrichedActorsCount = enriched.enrichedCount;
+      } catch {
+        // Silent fallback: films are synced even if AI metadata enrichment fails
+      }
+    }
+
+    return {
+      added,
+      skippedAlreadyLoaded,
+      totalRss: res.entries.length,
+      enrichedActorsCount,
+      onlyNew,
+    };
+  };
+
+  const handleImportDiaryCsv = (entries: DiaryEntry[]): number => {
+    const nextDiary = mergeDiaryEntries(lib.diary || [], entries);
+    const incomingSeen = diaryToSeenItems(entries);
+    updateData((prev) => ({
+      ...prev,
+      seen: mergeSeenImports(prev.seen, incomingSeen),
+      custom: true,
+    }));
+    updateLib((prev) => ({
+      ...prev,
+      diary: nextDiary,
+      ts: Date.now(),
+    }));
+    return nextDiary.length;
   };
 
   const handleDeferPending = (entry: HistoryEntry) => {
@@ -1343,6 +1402,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
               }))
             }
             onSyncDiaryRss={handleSyncDiaryRss}
+            onImportDiaryCsv={handleImportDiaryCsv}
             onOpenArchive={() => setTab("archivio")}
           />
         )}
@@ -1425,6 +1485,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
               }));
             }}
             onSyncDiaryRss={handleSyncDiaryRss}
+            onImportDiaryCsv={handleImportDiaryCsv}
             onClearToEmptyUser={() => {
               const emptyData: WatchlistDataState = {
                 watch: [],
@@ -1451,10 +1512,20 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
               setPicks([]);
             }}
             onResetOriginal={() => {
+              const preservedMeta = lib.meta;
+              const preservedUser = lib.letterboxdUser || "";
               localStorage.removeItem("wl_v1");
               localStorage.removeItem("wl_v2");
-              setData(loadInitialDataState());
-              setLib(loadInitialLibraryState());
+              const freshData = loadInitialDataState();
+              const freshLib = loadInitialLibraryState();
+              const restoredLib: LibraryState = {
+                ...freshLib,
+                meta: { ...freshLib.meta, ...preservedMeta },
+                letterboxdUser: preservedUser,
+              };
+              persistLibraryState(restoredLib);
+              setData(freshData);
+              setLib(restoredLib);
               setPicks([]);
             }}
             onImportBackup={(payload) => {

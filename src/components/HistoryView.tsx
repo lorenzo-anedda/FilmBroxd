@@ -13,10 +13,12 @@ import {
 import { formatAIError, generateWithAI } from "../utils/aiClient";
 import { DiaryTab } from "./DiaryTab";
 import type {
+  DiaryEntry,
   FilmMeta,
   HistoryEntry,
   LibraryState,
   OutcomeKey,
+  RssSyncResult,
   SeenFilmItem,
 } from "../types";
 
@@ -29,7 +31,11 @@ interface HistoryViewProps {
   onRepropose: (entry: HistoryEntry) => void;
   onUndoNever: (entry: HistoryEntry) => void;
   onMergeMeta: (updates: Record<string, FilmMeta>) => void;
-  onSyncDiaryRss: (username: string) => Promise<{ added: number; total: number }>;
+  onSyncDiaryRss: (
+    username: string,
+    options?: { onlyNew?: boolean }
+  ) => Promise<RssSyncResult>;
+  onImportDiaryCsv: (entries: DiaryEntry[]) => number;
   onOpenArchive: () => void;
 }
 
@@ -57,6 +63,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   onUndoNever,
   onMergeMeta,
   onSyncDiaryRss,
+  onImportDiaryCsv,
   onOpenArchive,
 }) => {
   const [activeTab, setActiveTab] = useState<HistTab | "">("");
@@ -351,6 +358,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             diarySyncedAt={lib.diarySyncedAt}
             meta={lib.meta}
             onSyncRss={onSyncDiaryRss}
+            onImportDiaryCsv={onImportDiaryCsv}
             onOpenArchive={onOpenArchive}
           />
         ) : !visibleList.length ? (

@@ -1,4 +1,5 @@
-import type { DiaryEntry, SeenFilmItem } from "../types";
+import { filmKey, itTitle, normTitle } from "./filmHelpers";
+import type { DiaryEntry, FilmItem, SeenFilmItem } from "../types";
 
 export function parseJsonSafely<T>(text: string, opener: "[" | "{"): T {
   const cleaned = String(text || "")
@@ -364,3 +365,81 @@ export function mergeSeenImports(
   }
   return Array.from(map.values());
 }
+
+export function buildFilmMatcher(
+  films: ReadonlyArray<{ t: string; y?: string; it?: string }>
+): (candidate: { t: string; y?: string; it?: string }) => boolean {
+  const exactKeys = new Set<string>();
+  const normYearMap = new Map<string, Set<string>>();
+
+  const registerTitle = (title: string, year: string) => {
+    const nt = normTitle(title);
+    if (!nt) return;
+    let set = normYearMap.get(nt);
+    if (!set) {
+      set = new Set<string>();
+      normYearMap.set(nt, set);
+    }
+    set.add(year);
+  };
+
+  for (const f of films) {
+    const y = (f.y || "").trim();
+    exactKeys.add(filmKey({ t: f.t.trim(), y }));
+    registerTitle(f.t, y);
+    const it = itTitle(f as FilmItem);
+    if (it) {
+      exactKeys.add(filmKey({ t: it.trim(), y }));
+      registerTitle(it, y);
+    }
+  }
+
+  return (candidate) => {
+    const y = (candidate.y || "").trim();
+    if (exactKeys.has(filmKey({ t: candidate.t.trim(), y }))) return true;
+    const nt = normTitle(candidate.t);
+    const years = nt ? normYearMap.get(nt) : undefined;
+    if (!years) return false;
+    if (!y || years.has("") || years.has(y)) return true;
+    const numY = Number(y);
+    if (!Number.isFinite(numY)) return false;
+    return (
+      years.has(String(numY - 1)) ||
+      years.has(String(numY + 1))
+    );
+  };
+}
+
+export function filterNewDiaryEntries(
+  rssEntries: DiaryEntry[],
+  existingSeen: SeenFilmItem[],
+  existingDiary: DiaryEntry[]
+): {
+  unseenEntries: DiaryEntry[];
+  skippedAlreadyLoaded: number;
+} {
+  const isSeenMatch = buildFilmMatcher(existingSeen);
+  const existingDiaryIds = new Set(existingDiary.map((d) => d.id));
+  const existingDiarySigs = new Set(
+    existingDiary.map((d) => `${d.k}|${d.watchedDate}`)
+  );
+
+  const unseenEntries: DiaryEntry[] = [];
+  let skippedAlreadyLoaded = 0;
+
+  for (const entry of rssEntries) {
+    const sig = `${entry.k}|${entry.watchedDate}`;
+    const alreadyInDiary =
+      existingDiaryIds.has(entry.id) || existingDiarySigs.has(sig);
+    const alreadyInSeen = isSeenMatch(entry);
+
+    if (alreadyInDiary || alreadyInSeen) {
+      skippedAlreadyLoaded += 1;
+    } else {
+      unseenEntries.push(entry);
+    }
+  }
+
+  return { unseenEntries, skippedAlreadyLoaded };
+}
+

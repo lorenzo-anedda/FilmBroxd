@@ -11,6 +11,7 @@ import type {
   DiaryEntry,
   FilmItem,
   LibraryState,
+  RssSyncResult,
   SeenFilmItem,
   WatchlistDataState,
 } from "../types";
@@ -20,7 +21,11 @@ interface ArchiveViewProps {
   lib: LibraryState;
   onImportWatchlist: (films: FilmItem[]) => void;
   onImportSeen: (films: SeenFilmItem[], diaryEntries?: DiaryEntry[]) => void;
-  onSyncDiaryRss: (username: string) => Promise<{ added: number; total: number }>;
+  onImportDiaryCsv: (entries: DiaryEntry[]) => number;
+  onSyncDiaryRss: (
+    username: string,
+    options?: { onlyNew?: boolean }
+  ) => Promise<RssSyncResult>;
   onClearToEmptyUser: () => void;
   onResetOriginal: () => void;
   onImportBackup: (payload: {
@@ -34,6 +39,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
   lib,
   onImportWatchlist,
   onImportSeen,
+  onImportDiaryCsv,
   onSyncDiaryRss,
   onClearToEmptyUser,
   onResetOriginal,
@@ -41,6 +47,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
 }) => {
   const [notice, setNotice] = useState("");
   const [rssUser, setRssUser] = useState(lib.letterboxdUser || "");
+  const [onlyNewFilms, setOnlyNewFilms] = useState(true);
   const [rssBusy, setRssBusy] = useState(false);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -73,6 +80,8 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
     let combinedDiary: DiaryEntry[] = data.custom ? [...(lib.diary || [])] : [];
     let importedTotal = 0;
     let diaryImportedCount = 0;
+    let nonDiaryImportedCount = 0;
+    let rawDiaryEntries: DiaryEntry[] = [];
 
     for (const file of files) {
       const text = await file.text();
@@ -81,6 +90,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
         if (diaryParsed.length > 0) {
           diaryImportedCount += diaryParsed.length;
           importedTotal += diaryParsed.length;
+          rawDiaryEntries = mergeDiaryEntries(rawDiaryEntries, diaryParsed);
           combinedDiary = mergeDiaryEntries(combinedDiary, diaryParsed);
           combinedSeen = mergeSeenImports(
             combinedSeen,
@@ -91,6 +101,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
       }
       const parsed = parseFilmImport(text);
       if (parsed.length > 0) {
+        nonDiaryImportedCount += parsed.length;
         importedTotal += parsed.length;
         combinedSeen = mergeSeenImports(combinedSeen, parsed);
       }
@@ -98,6 +109,15 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
 
     if (!importedTotal) {
       setNotice("Nessun film trovato nei file caricati.");
+      return;
+    }
+
+    if (diaryImportedCount > 0 && nonDiaryImportedCount === 0) {
+      const totalDiaryAfter = onImportDiaryCsv(rawDiaryEntries);
+      setNotice(
+        `Diario aggiornato: ${rawDiaryEntries.length} visioni unite alla tua libreria attuale (${totalDiaryAfter} log totali nel Diario) senza perdere lista precaricata né attori analizzati.`
+      );
+      e.target.value = "";
       return;
     }
 
@@ -122,10 +142,26 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
     setRssBusy(true);
     setNotice("");
     try {
-      const res = await onSyncDiaryRss(clean);
-      setNotice(
-        `Sync RSS completato per @${clean}: ${res.total} log recenti letti (${res.added} nuove visioni aggiunte al Diario).`
-      );
+      const res = await onSyncDiaryRss(clean, { onlyNew: onlyNewFilms });
+      if (res.onlyNew && res.added === 0) {
+        setNotice(
+          `Nessun nuovo film da aggiungere da @${clean}: tutti i ${res.totalRss} film del feed RSS sono già presenti nella tua lista.`
+        );
+      } else {
+        const skippedNote =
+          res.onlyNew && res.skippedAlreadyLoaded > 0
+            ? ` (${res.skippedAlreadyLoaded} già in lista ignorati)`
+            : "";
+        const actorsNote =
+          res.enrichedActorsCount > 0
+            ? ` · registi e attori reali analizzati per ${res.enrichedActorsCount} nuovi film`
+            : "";
+        setNotice(
+          `Sync RSS completato per @${clean}: ${res.added} ${
+            res.added === 1 ? "nuovo film aggiunto" : "nuovi film aggiunti"
+          } su ${res.totalRss}${skippedNote}${actorsNote}. Lista precaricata e attori precedenti mantenuti intatti.`
+        );
+      }
     } catch (err) {
       setNotice(
         err instanceof Error
@@ -248,33 +284,45 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
 
         <form
           onSubmit={handleRssSync}
-          className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-4 dark:border-slate-800 dark:bg-[#0B0E14]"
+          className="mt-5 space-y-3 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-4 dark:border-slate-800 dark:bg-[#0B0E14]"
         >
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-              Sync rapido Diario via RSS Letterboxd
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                Sync incrementale RSS Letterboxd (senza esportare lo zip)
+              </div>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                Mantiene intatti lista precaricata e attori già analizzati: legge gli ultimi log pubblici e aggiunge solo i nuovi film che non hai ancora in lista (analizzandone automaticamente regista e attori).
+              </p>
             </div>
-            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-              Aggiorna gli ultimi log (data, voto, rewatch e locandina) dal profilo pubblico senza riesportare lo zip.
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={rssUser}
+                onChange={(e) => setRssUser(e.target.value)}
+                placeholder="username Letterboxd"
+                aria-label="Username Letterboxd"
+                className="w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#131722] dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
+              <button
+                type="submit"
+                disabled={rssBusy || !rssUser.trim()}
+                className="rounded-lg bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+              >
+                {rssBusy ? "Sincronizzo…" : "Sincronizza RSS"}
+              </button>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+
+          <label className="inline-flex cursor-pointer items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
             <input
-              type="text"
-              value={rssUser}
-              onChange={(e) => setRssUser(e.target.value)}
-              placeholder="username Letterboxd"
-              aria-label="Username Letterboxd"
-              className="w-44 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#131722] dark:text-slate-100 dark:placeholder:text-slate-500"
+              type="checkbox"
+              checked={onlyNewFilms}
+              onChange={(e) => setOnlyNewFilms(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB] dark:border-slate-600 dark:bg-[#131722]"
             />
-            <button
-              type="submit"
-              disabled={rssBusy || !rssUser.trim()}
-              className="rounded-lg bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
-            >
-              {rssBusy ? "Sincronizzo…" : "Sincronizza RSS"}
-            </button>
-          </div>
+            Importa solo i film nuovi non ancora presenti nella tua lista
+          </label>
         </form>
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
