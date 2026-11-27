@@ -20,6 +20,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 }) => {
   const navItems: Array<[ActiveTab, string]> = [
     ["serata", "Serata"],
+    ["cinesfida", "ReelRouette"],
     [
       "cronologia",
       tonightCount > 0 ? `Cronologia · ${tonightCount}` : "Cronologia",

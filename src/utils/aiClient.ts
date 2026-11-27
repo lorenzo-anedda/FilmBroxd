@@ -4,25 +4,44 @@ export interface AIError extends Error {
   code?: string;
 }
 
-const clientPreviewCache = new Map<string, FilmPreviewData>();
+const clientPreviewCache = new Map<
+  string,
+  { data: FilmPreviewData; isFull: boolean }
+>();
+
+export function preloadPosterImage(url?: string | null): void {
+  if (!url || typeof Image === "undefined") return;
+  try {
+    const img = new Image();
+    img.referrerPolicy = "no-referrer";
+    img.src = url;
+  } catch {
+    // ignore preload errors
+  }
+}
 
 export async function fetchFilmPreview(
   film: FilmItem,
-  director?: string
+  director?: string,
+  options?: { fast?: boolean }
 ): Promise<FilmPreviewData> {
+  const fast = Boolean(options?.fast);
   const key = `${film.t.toLowerCase()}|${film.y || ""}|${(director || "").toLowerCase()}`;
   const cached = clientPreviewCache.get(key);
-  if (cached) return cached;
+  if (cached && (fast || cached.isFull)) {
+    return cached.data;
+  }
 
   const params = new URLSearchParams({ title: film.t });
   if (film.it) params.set("itTitle", film.it);
   if (film.y) params.set("year", film.y);
   if (director) params.set("director", director);
+  if (fast) params.set("fast", "1");
 
   try {
     const res = await fetch(`/api/film/preview?${params.toString()}`);
     if (!res.ok) {
-      return { posterUrl: null, description: "", wikiUrl: null };
+      return { posterUrl: null, description: "", wikiUrl: null, loading: false };
     }
     const data = (await res.json()) as {
       posterUrl?: string | null;
@@ -35,7 +54,10 @@ export async function fetchFilmPreview(
       wikiUrl: data.wikiUrl || null,
       loading: false,
     };
-    clientPreviewCache.set(key, result);
+    preloadPosterImage(result.posterUrl);
+    if (!cached || !cached.isFull || !fast) {
+      clientPreviewCache.set(key, { data: result, isFull: !fast });
+    }
     return result;
   } catch {
     return { posterUrl: null, description: "", wikiUrl: null, loading: false };

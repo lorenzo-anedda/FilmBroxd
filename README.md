@@ -27,11 +27,13 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │   │   └── useFilmPreviews.ts        # Hook per il caricamento asincrono delle locandine
 │   ├── utils/
 │   │   ├── aiClient.ts               # Fetch client verso /api/ai/generate e /api/film/preview
+│   │   ├── cinemaSound.ts            # Effetti audio Web Audio per torneo e vittoria
 │   │   ├── filmHelpers.ts            # Normalizzazione titoli, storico e filtri
 │   │   ├── recommender.ts            # Motore di punteggio locale e builder dei prompt AI
 │   │   ├── parsers.ts                # Parser JSON tollerante e import CSV/TXT
 │   │   ├── profileStats.ts           # Calcolo statistiche su voti, decenni, registi e attori
 │   │   ├── storage.ts                # Persistenza e migrazione su localStorage
+│   │   ├── tournament.ts             # Logica tabellone a 8 o 16 film (Quarti/Ottavi-Finale)
 │   │   └── filmLogic.ts              # Barrel di compatibilità verso i moduli utils
 │   └── components/
 │       ├── HeaderBar.tsx             # Header sticky con logo proiettore animato e navigazione
@@ -40,6 +42,9 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │       ├── RecommendationsStage.tsx  # Colonna risultati e riepilogo archivio
 │       ├── PickCard.tsx              # Scheda singolo film con locandina, trama e azioni
 │       ├── FilmPreviewModal.tsx      # Modale anteprima ingrandita + link Letterboxd/Wiki
+│       ├── CineSfidaView.tsx         # Modalità gioco ReelRouette (Quarti o Ottavi con locandine)
+│       ├── CineSfidaBracket.tsx      # Tabellone visivo dai Quarti o Ottavi fino alla Finale
+│       ├── CineSfidaVictory.tsx      # Schermata di vittoria a tema cinema con sipario
 │       ├── PendingQueue.tsx          # Promemoria film scelti nelle serate precedenti
 │       ├── HistoryView.tsx           # Cronologia, da vedere e scartati
 │       ├── ProfileStats.tsx          # Grafici statistiche su voti, decenni, registi e attori

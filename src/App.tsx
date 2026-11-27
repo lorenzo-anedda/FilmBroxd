@@ -38,6 +38,7 @@ import { HeaderBar } from "./components/HeaderBar";
 import { EveningControls } from "./components/EveningControls";
 import { RecommendationsStage } from "./components/RecommendationsStage";
 import { FilmPreviewModal } from "./components/FilmPreviewModal";
+import { CineSfidaView } from "./components/CineSfidaView";
 import { HistoryView } from "./components/HistoryView";
 import { ProfileView } from "./components/ProfileView";
 import { ArchiveView } from "./components/ArchiveView";
@@ -1067,6 +1068,28 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
               onNoteReason={handleNoteReason}
             />
           </div>
+        )}
+
+        {tab === "cinesfida" && (
+          <CineSfidaView
+            watchlistPool={fullWatchlist}
+            filteredPool={filteredBase}
+            hasActiveFilters={
+              minMinutes > 0 ||
+              maxMinutes > 0 ||
+              genreSel.size > 0 ||
+              countrySel.size > 0 ||
+              decadeSel.size > 0
+            }
+            allSeen={allSeen}
+            lib={lib}
+            onWatchTonightFilm={(film) =>
+              updateLib((prev) => ({
+                ...prev,
+                hist: upsertHistory(prev.hist, film, "y", false),
+              }))
+            }
+          />
         )}
 
         {tab === "cronologia" && (

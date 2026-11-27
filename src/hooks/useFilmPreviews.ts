@@ -39,11 +39,27 @@ export function useFilmPreviews(picks: ActivePick[]) {
       return next;
     });
 
+    // Two-phase load: fast Wiki poster + plot first, then AI synopsis upgrade only if missing
     toFetch.forEach((p) => {
       const key = filmKey(p.film);
-      fetchFilmPreview(p.film, p.regista).then((data) => {
+      fetchFilmPreview(p.film, p.regista, { fast: true }).then((fastData) => {
         if (!mountedRef.current) return;
-        setPreviews((cur) => ({ ...cur, [key]: { ...data, loading: false } }));
+        setPreviews((cur) => ({
+          ...cur,
+          [key]: { ...fastData, loading: false },
+        }));
+
+        if (!fastData.description || fastData.description.length < 80) {
+          fetchFilmPreview(p.film, p.regista, { fast: false }).then(
+            (fullData) => {
+              if (!mountedRef.current) return;
+              setPreviews((cur) => ({
+                ...cur,
+                [key]: { ...fullData, loading: false },
+              }));
+            }
+          );
+        }
       });
     });
   }, [picks]);
