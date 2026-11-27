@@ -16,6 +16,8 @@ export interface FilmMeta {
   d: string; // Regista
   c: string; // Paese in italiano
   a?: string; // Attori principali separati da /
+  pc?: boolean; // Regista/attori già verificati (evita loop sui documentari/corti senza cast)
+  mc?: boolean; // Metadati watchlist già verificati
 }
 
 export interface FilmMark {

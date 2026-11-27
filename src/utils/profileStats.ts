@@ -25,6 +25,7 @@ export interface PersonStat {
   avgRating: number | null;
   affinityScore: number;
   topFilms: string[];
+  filmItems: SeenFilmItem[];
   pctOfMaxCount: number;
 }
 
@@ -46,6 +47,7 @@ export interface ProfileStatsSummary {
   seenWithDirector: number;
   seenWithActors: number;
   missingPeopleFilms: SeenFilmItem[];
+  checkedNoCastCount: number;
 }
 
 interface PersonAccumulator {
@@ -53,7 +55,12 @@ interface PersonAccumulator {
   count: number;
   ratedCount: number;
   ratingSum: number;
-  films: Array<{ title: string; rating: number }>;
+  films: Array<{ title: string; rating: number; item: SeenFilmItem }>;
+}
+
+export function isAnimationFilm(meta?: FilmMeta): boolean {
+  if (!meta || !nz(meta.g)) return false;
+  return /animazion|animat|anime|cartoon/i.test(meta.g);
 }
 
 function splitPeopleNames(raw?: string): string[] {
@@ -91,10 +98,8 @@ function finalizePeople(
       (acc.ratedCount + 1.5);
     const affinityScore =
       smoothedAvg * 2 + Math.min(acc.count, 8) * (scaleMax === 5 ? 0.35 : 0.7);
-    const topFilms = [...acc.films]
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, 2)
-      .map((f) => f.title);
+    const sortedFilms = [...acc.films].sort((a, b) => b.rating - a.rating);
+    const topFilms = sortedFilms.slice(0, 2).map((f) => f.title);
 
     return {
       name: acc.name,
@@ -103,6 +108,7 @@ function finalizePeople(
       avgRating,
       affinityScore,
       topFilms,
+      filmItems: sortedFilms.map((f) => f.item),
       pctOfMaxCount: 0,
     };
   });
@@ -206,6 +212,7 @@ export function computeProfileStats(
 
   let seenWithDirector = 0;
   let seenWithActors = 0;
+  let checkedNoCastCount = 0;
   const missingPeopleFilms: SeenFilmItem[] = [];
 
   for (const film of seen) {
@@ -227,13 +234,19 @@ export function computeProfileStats(
 
     const k = filmKey(film);
     const m = meta[k];
+    const isAnim = isAnimationFilm(m);
     const directors = splitPeopleNames(m?.d);
-    const actors = splitPeopleNames(m?.a);
+    const actors = isAnim ? [] : splitPeopleNames(m?.a);
 
     if (directors.length > 0) seenWithDirector += 1;
     if (actors.length > 0) seenWithActors += 1;
-    if (directors.length === 0 || actors.length === 0) {
-      missingPeopleFilms.push(film);
+    const needsActors = !isAnim && actors.length === 0;
+    if (directors.length === 0 || needsActors) {
+      if (m?.pc) {
+        checkedNoCastCount += 1;
+      } else {
+        missingPeopleFilms.push(film);
+      }
     }
 
     const title = displayTitle(film);
@@ -253,7 +266,7 @@ export function computeProfileStats(
         prev.ratedCount += 1;
         prev.ratingSum += film.r;
       }
-      prev.films.push({ title, rating: ratingVal });
+      prev.films.push({ title, rating: ratingVal, item: film });
       directorMap.set(normKey, prev);
     }
 
@@ -271,7 +284,7 @@ export function computeProfileStats(
         prev.ratedCount += 1;
         prev.ratingSum += film.r;
       }
-      prev.films.push({ title, rating: ratingVal });
+      prev.films.push({ title, rating: ratingVal, item: film });
       actorMap.set(normKey, prev);
     }
   }
@@ -336,5 +349,6 @@ export function computeProfileStats(
     seenWithDirector,
     seenWithActors,
     missingPeopleFilms,
+    checkedNoCastCount,
   };
 }

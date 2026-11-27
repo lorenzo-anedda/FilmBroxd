@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { displayTitle } from "../utils/filmHelpers";
 import { computeProfileStats, type PersonStat } from "../utils/profileStats";
 import type { FilmMeta, SeenFilmItem } from "../types";
 
@@ -10,6 +11,9 @@ interface ProfileStatsProps {
   peopleProgress: string;
   onEnrichPeople: () => void;
   onStopEnrichPeople: () => void;
+  onRetryCheckedPeople: () => void;
+  onReenrichFilms: (films: SeenFilmItem[]) => void;
+  onResetAndReenrichPeople: () => void;
 }
 
 const PeopleCard: React.FC<{
@@ -20,6 +24,9 @@ const PeopleCard: React.FC<{
   defaultSort: "love" | "count";
   scaleMax: 5 | 10;
   emptyText: string;
+  aiAvailable: boolean;
+  busyPeople: boolean;
+  onReenrichFilms: (films: SeenFilmItem[]) => void;
 }> = ({
   title,
   subtitle,
@@ -28,8 +35,12 @@ const PeopleCard: React.FC<{
   defaultSort,
   scaleMax,
   emptyText,
+  aiAvailable,
+  busyPeople,
+  onReenrichFilms,
 }) => {
   const [sortMode, setSortMode] = useState<"love" | "count">(defaultSort);
+  const [expandedPerson, setExpandedPerson] = useState<string | null>(null);
   const items = sortMode === "love" ? itemsByLove : itemsByCount;
 
   return (
@@ -77,53 +88,89 @@ const PeopleCard: React.FC<{
         </p>
       ) : (
         <ul className="space-y-3">
-          {items.map((person, idx) => (
-            <li key={person.name} className="space-y-1.5">
-              <div className="flex items-baseline justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
-                      {String(idx + 1).padStart(2, "0")}
-                    </span>
-                    <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {person.name}
-                    </span>
+          {items.map((person, idx) => {
+            const isExpanded = expandedPerson === person.name;
+            return (
+              <li key={person.name} className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedPerson(isExpanded ? null : person.name)
+                  }
+                  className="block w-full text-left"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        <span className="truncate text-sm font-semibold text-slate-900 hover:text-[#2563EB] dark:text-slate-100 dark:hover:text-[#60A5FA]">
+                          {person.name}
+                        </span>
+                      </div>
+                      {person.topFilms.length > 0 && (
+                        <p className="truncate pl-6 text-[11px] text-slate-500 dark:text-slate-400">
+                          {person.topFilms.join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right font-mono text-xs tabular-nums">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {person.count}
+                      </span>{" "}
+                      <span className="text-slate-500 dark:text-slate-400">film</span>
+                      {person.avgRating != null && (
+                        <span className="ml-2 text-[#2563EB] dark:text-[#60A5FA]">
+                          {person.avgRating.toFixed(1)}
+                          {scaleMax === 5 ? "★" : "/10"}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {person.topFilms.length > 0 && (
-                    <p className="truncate pl-6 text-[11px] text-slate-500 dark:text-slate-400">
-                      {person.topFilms.join(" · ")}
+                  <svg
+                    className="mt-1.5 h-1.5 w-full overflow-hidden rounded-sm bg-slate-100 text-[#2563EB] dark:bg-slate-800/80 dark:text-[#3B82F6]"
+                    viewBox="0 0 100 6"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <rect
+                      x="0"
+                      y="0"
+                      width={person.pctOfMaxCount}
+                      height="6"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+
+                {isExpanded && (
+                  <div className="ml-6 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-3 text-xs dark:border-slate-800 dark:bg-[#0B0E14]">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-slate-700 dark:text-slate-300">
+                        Film attribuiti ({person.filmItems.length})
+                      </span>
+                      {aiAvailable && (
+                        <button
+                          type="button"
+                          disabled={busyPeople}
+                          onClick={() => onReenrichFilms(person.filmItems)}
+                          className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-[#2563EB] transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-[#131722] dark:text-[#60A5FA]"
+                        >
+                          Rianalizza questi {person.filmItems.length} film
+                        </button>
+                      )}
+                    </div>
+                    <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                      {person.filmItems
+                        .map((f) => `${displayTitle(f)}${f.y ? ` (${f.y})` : ""}`)
+                        .join(" · ")}
                     </p>
-                  )}
-                </div>
-                <div className="shrink-0 text-right font-mono text-xs tabular-nums">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    {person.count}
-                  </span>{" "}
-                  <span className="text-slate-500 dark:text-slate-400">film</span>
-                  {person.avgRating != null && (
-                    <span className="ml-2 text-[#2563EB] dark:text-[#60A5FA]">
-                      {person.avgRating.toFixed(1)}
-                      {scaleMax === 5 ? "★" : "/10"}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <svg
-                className="h-1.5 w-full overflow-hidden rounded-sm bg-slate-100 text-[#2563EB] dark:bg-slate-800/80 dark:text-[#3B82F6]"
-                viewBox="0 0 100 6"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <rect
-                  x="0"
-                  y="0"
-                  width={person.pctOfMaxCount}
-                  height="6"
-                  fill="currentColor"
-                />
-              </svg>
-            </li>
-          ))}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -138,6 +185,9 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
   peopleProgress,
   onEnrichPeople,
   onStopEnrichPeople,
+  onRetryCheckedPeople,
+  onReenrichFilms,
+  onResetAndReenrichPeople,
 }) => {
   const stats = useMemo(
     () => computeProfileStats(allSeen, meta),
@@ -149,11 +199,6 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
   }
 
   const missingCount = stats.missingPeopleFilms.length;
-  const peopleCoveragePct = Math.round(
-    (Math.min(stats.seenWithDirector, stats.seenWithActors) /
-      Math.max(1, stats.totalSeen)) *
-      100
-  );
 
   return (
     <section className="space-y-6">
@@ -384,22 +429,29 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
       </div>
 
       {/* People enrichment bar (when seen films still lack director or actors) */}
-      {(missingCount > 0 || busyPeople || peopleProgress) && (
+      {(missingCount > 0 ||
+        stats.checkedNoCastCount > 0 ||
+        stats.seenWithDirector > 0 ||
+        stats.seenWithActors > 0 ||
+        busyPeople ||
+        peopleProgress) && (
         <div className="rounded-2xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-[#131722]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-800 dark:text-slate-200">
                 <span>
-                  Copertura registi e attori sui film visti: {Math.min(stats.seenWithDirector, stats.seenWithActors)}/{stats.totalSeen} ({peopleCoveragePct}%)
+                  Registi noti: {stats.seenWithDirector}/{stats.totalSeen} · Attori reali noti: {stats.seenWithActors}/{stats.totalSeen}
+                  {stats.checkedNoCastCount > 0 &&
+                    ` · ${stats.checkedNoCastCount} verificati senza cast`}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {peopleProgress ||
-                  "La cronologia importata da Letterboxd non include registi e cast: avvia l'analisi AI per popolare entrambe le classifiche partendo dai tuoi film votati più alti."}
+                  "Esclude automaticamente i doppiatori dei film d'animazione (mantenendo gli attori tradizionali come Tom Hanks nei loro film dal vivo). Clicca un nome qui sotto per ispezionare o correggere i film collegati."}
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {busyPeople ? (
                 <button
                   type="button"
@@ -409,16 +461,40 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                   Ferma analisi
                 </button>
               ) : (
-                <button
-                  type="button"
-                  disabled={!aiAvailable || missingCount === 0}
-                  onClick={onEnrichPeople}
-                  className="rounded-lg bg-[#2563EB] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
-                >
-                  {stats.seenWithDirector === 0 && stats.seenWithActors === 0
-                    ? `Analizza registi e attori (${missingCount})`
-                    : `Completa mancanti (${missingCount})`}
-                </button>
+                <>
+                  {missingCount > 0 && (
+                    <button
+                      type="button"
+                      disabled={!aiAvailable}
+                      onClick={onEnrichPeople}
+                      className="rounded-lg bg-[#2563EB] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+                    >
+                      {stats.seenWithDirector === 0 && stats.seenWithActors === 0
+                        ? `Analizza registi e attori (${missingCount})`
+                        : `Completa mancanti (${missingCount})`}
+                    </button>
+                  )}
+                  {missingCount === 0 && stats.checkedNoCastCount > 0 && (
+                    <button
+                      type="button"
+                      disabled={!aiAvailable}
+                      onClick={onRetryCheckedPeople}
+                      className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-3.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Riprova i {stats.checkedNoCastCount} senza cast
+                    </button>
+                  )}
+                  {(stats.seenWithDirector > 0 || stats.seenWithActors > 0) && (
+                    <button
+                      type="button"
+                      disabled={!aiAvailable}
+                      onClick={onResetAndReenrichPeople}
+                      className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-3.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Rianalizza tutto (solo attori reali)
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -435,16 +511,22 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
           defaultSort="love"
           scaleMax={stats.scaleMax}
           emptyText="Premi «Analizza registi e attori» qui sopra per calcolare i tuoi registi preferiti dai film già visti."
+          aiAvailable={aiAvailable}
+          busyPeople={busyPeople}
+          onReenrichFilms={onReenrichFilms}
         />
 
         <PeopleCard
           title="Attori più visti"
-          subtitle={`Calcolati su ${stats.seenWithActors} film con cast noto`}
+          subtitle={`Solo attori reali · esclusi i doppiaggi animati (${stats.seenWithActors} film)`}
           itemsByLove={stats.actorsByLove}
           itemsByCount={stats.actorsByCount}
           defaultSort="count"
           scaleMax={stats.scaleMax}
           emptyText="Premi «Analizza registi e attori» qui sopra per scoprire gli attori che compaiono di più nei tuoi film visti."
+          aiAvailable={aiAvailable}
+          busyPeople={busyPeople}
+          onReenrichFilms={onReenrichFilms}
         />
       </div>
     </section>

@@ -3,10 +3,11 @@ import {
   canonicalLabel,
   filmKey,
   getAllSeen,
+  normTitle,
   nz,
   parseJsonSafely,
 } from "../utils/filmLogic";
-import { computeProfileStats } from "../utils/profileStats";
+import { computeProfileStats, isAnimationFilm } from "../utils/profileStats";
 import { formatAIError, generateWithAI } from "../utils/aiClient";
 import { ProfileStats } from "./ProfileStats";
 import type { FilmItem, FilmMeta, LibraryState, SeenFilmItem } from "../types";
@@ -37,6 +38,37 @@ function cleanPeopleValue(val: unknown): string {
     .filter((p) => p.length > 1 && p.toLowerCase() !== "null")
     .slice(0, 3)
     .join(" / ");
+}
+
+function resolveBatchFilm<T extends FilmItem>(
+  batch: T[],
+  item: { i?: unknown; t?: unknown; title?: unknown; film?: unknown },
+  claimedIndices: Set<number>
+): { film: T; idx: number } | null {
+  const numIdx = Number(item.i);
+  if (
+    Number.isInteger(numIdx) &&
+    numIdx >= 0 &&
+    numIdx < batch.length &&
+    !claimedIndices.has(numIdx)
+  ) {
+    claimedIndices.add(numIdx);
+    return { film: batch[numIdx], idx: numIdx };
+  }
+
+  const rawTitle = String(item.t ?? item.title ?? item.film ?? "").trim();
+  if (rawTitle) {
+    const target = normTitle(rawTitle.replace(/\s*\(\d{4}\)\s*$/, ""));
+    const foundIdx = batch.findIndex(
+      (f, idx) => !claimedIndices.has(idx) && normTitle(f.t) === target
+    );
+    if (foundIdx >= 0) {
+      claimedIndices.add(foundIdx);
+      return { film: batch[foundIdx], idx: foundIdx };
+    }
+  }
+
+  return null;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -75,7 +107,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   );
 
   const missingList = useMemo(
-    () => fullWatch.filter((x) => !lib.meta[filmKey(x)]),
+    () =>
+      fullWatch.filter((x) => {
+        const m = lib.meta[filmKey(x)];
+        return !m || (!nz(m.g) && !(m.m > 0) && !nz(m.d) && !m.mc);
+      }),
     [fullWatch, lib.meta]
   );
 
@@ -118,53 +154,94 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
     setBusyEnrich(true);
     setStatusMsg("");
     let done = 0;
+    const metaSnapshot: Record<string, FilmMeta> = { ...lib.meta };
+
+    const processMetaBatch = async (batch: FilmItem[], fastMode: boolean) => {
+      const prompt =
+        `Per ciascun film dai: genere (max 2, in italiano, separati da /), durata in minuti (intero, oppure null se non sei sicuro), regista, paese. Se non conosci il film con certezza usa null: non inventare.\nRispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogni indice da 0 a ${batch.length - 1}: [{"i":0,"g":"...","m":100,"d":"...","c":"..."}]\n\n` +
+        batch.map((x, j) => `${j}. ${canonicalLabel(x)}`).join("\n");
+
+      const raw = await generateWithAI(prompt, {
+        jsonMode: "array",
+        fast: fastMode,
+      });
+      const arr = parseJsonSafely<
+        Array<{
+          i?: unknown;
+          t?: unknown;
+          title?: unknown;
+          g?: string;
+          m?: number;
+          d?: string;
+          c?: string;
+        }>
+      >(raw, "[");
+
+      const claimed = new Set<number>();
+      const updates: Record<string, FilmMeta> = {};
+
+      for (const o of arr) {
+        const resolved = resolveBatchFilm(batch, o, claimed);
+        if (!resolved) continue;
+        const k = filmKey(resolved.film);
+        const prev = metaSnapshot[k];
+        const nextMeta: FilmMeta = {
+          g: o.g && o.g !== "null" ? o.g : prev?.g || "",
+          m: Number(o.m) || prev?.m || 0,
+          d: o.d && o.d !== "null" ? o.d : prev?.d || "",
+          c: o.c && o.c !== "null" ? o.c : prev?.c || "",
+          ...(prev?.a ? { a: prev.a } : {}),
+          ...(prev?.pc ? { pc: true } : {}),
+        };
+        if (!nz(nextMeta.g) && !(nextMeta.m > 0) && !nz(nextMeta.d)) {
+          nextMeta.mc = true;
+        }
+        updates[k] = nextMeta;
+        metaSnapshot[k] = nextMeta;
+      }
+
+      const omitted = batch.filter((_, idx) => !claimed.has(idx));
+      return { updates, omitted };
+    };
 
     try {
-      for (let i = 0; i < missingList.length; i += 60) {
-        const batch = missingList.slice(i, i + 60);
+      for (let i = 0; i < missingList.length; i += 45) {
+        const batch = missingList.slice(i, i + 45);
         setStatusMsg(
           `Arricchisco… ${enrichedCount + done}/${fullWatch.length} film`
         );
-        const prompt =
-          `Per ciascun film dai: genere (max 2, in italiano, separati da /), durata in minuti (intero, oppure null se non sei sicuro), regista, paese. Se non conosci il film con certezza usa null: non inventare.\nRispondi SOLO con un array JSON: [{"i":0,"g":"...","m":100,"d":"...","c":"..."}]\n\n` +
-          batch.map((x, j) => `${j}. ${canonicalLabel(x)}`).join("\n");
 
-        const raw = await generateWithAI(prompt, {
-          jsonMode: "array",
-          fast: true,
-        });
-        const arr = parseJsonSafely<
-          Array<{ i: number; g?: string; m?: number; d?: string; c?: string }>
-        >(raw, "[");
-        const updates: Record<string, FilmMeta> = {};
-        for (const o of arr) {
-          const x = batch[o.i];
-          if (x) {
-            const k = filmKey(x);
-            const prev = lib.meta[k];
-            updates[k] = {
-              g: o.g && o.g !== "null" ? o.g : "",
-              m: Number(o.m) || 0,
-              d: o.d && o.d !== "null" ? o.d : "",
-              c: o.c && o.c !== "null" ? o.c : "",
-              ...(prev?.a ? { a: prev.a } : {}),
-            };
+        const firstPass = await processMetaBatch(batch, batch.length > 20);
+        const combinedUpdates: Record<string, FilmMeta> = {
+          ...firstPass.updates,
+        };
+
+        if (firstPass.omitted.length > 0) {
+          for (let r = 0; r < firstPass.omitted.length; r += 15) {
+            const sub = firstPass.omitted.slice(r, r + 15);
+            const retryPass = await processMetaBatch(sub, false);
+            Object.assign(combinedUpdates, retryPass.updates);
+            for (const x of retryPass.omitted) {
+              const k = filmKey(x);
+              const prev = metaSnapshot[k];
+              const marked: FilmMeta = {
+                g: prev?.g || "",
+                m: prev?.m || 0,
+                d: prev?.d || "",
+                c: prev?.c || "",
+                ...(prev?.a ? { a: prev.a } : {}),
+                ...(prev?.pc ? { pc: true } : {}),
+                mc: true,
+              };
+              combinedUpdates[k] = marked;
+              metaSnapshot[k] = marked;
+            }
           }
         }
-        for (const x of batch) {
-          const k = filmKey(x);
-          if (!updates[k]) {
-            const prev = lib.meta[k];
-            updates[k] = {
-              g: "",
-              m: 0,
-              d: "",
-              c: "",
-              ...(prev?.a ? { a: prev.a } : {}),
-            };
-          }
+
+        if (Object.keys(combinedUpdates).length > 0) {
+          onMergeMeta(combinedUpdates);
         }
-        onMergeMeta(updates);
         done += batch.length;
       }
       setStatusMsg("Fatto: lista arricchita.");
@@ -177,19 +254,105 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
     }
   };
 
-  const handleEnrichSeenPeople = async () => {
-    const queue = computeProfileStats(allSeen, lib.meta).missingPeopleFilms;
+  const runEnrichSeenPeople = async (
+    overrideQueue?: SeenFilmItem[],
+    options?: { forceOverwrite?: boolean }
+  ) => {
+    const forceOverwrite = Boolean(options?.forceOverwrite);
+    const queue =
+      overrideQueue ?? computeProfileStats(allSeen, lib.meta).missingPeopleFilms;
     if (!queue.length) {
-      setPeopleProgress("Tutti i film visti hanno già regista e cast.");
+      setPeopleProgress("Tutti i film visti sono già stati verificati.");
       return;
     }
 
     stopPeopleRef.current = false;
     setBusyPeople(true);
     let processed = 0;
+    let enrichedNow = 0;
+    let excludedAnimOrNoCast = 0;
+    const metaSnapshot: Record<string, FilmMeta> = { ...lib.meta };
+
+    const processPeopleBatch = async (batch: SeenFilmItem[]) => {
+      const prompt =
+        `Verifica OGNI film singolarmente. Per ciascuno indica:
+- "g": genere principale in italiano (max 2 separati da /, es. "Animazione / Avventura", "Commedia", "Drammatico")
+- "d": regista originale
+- "a": fino a 3 ATTORI REALI IN CARNE E OSSA separati da " / ".
+REGOLE RIGOROSE:
+1) Per film d'animazione, anime o corti animati NON inserire mai doppiatori o voci: metti OBBLIGATORIAMENTE "a": null (indica però sempre "g" e "d").
+2) Per documentari senza attori metti "a": null.
+3) NON copiare né ripetere mai lo stesso regista o gli stessi attori su altri titoli della lista: se non conosci con certezza assoluta il film, metti null.
+
+Rispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogni indice da 0 a ${batch.length - 1}: [{"i":0,"g":"...","d":"Regista","a":"Attore 1 / Attore 2 / Attore 3"}]\n\n` +
+        batch.map((x, j) => `${j}. ${canonicalLabel(x)}`).join("\n");
+
+      // Use ThinkingLevel.MEDIUM (fast: false) and smaller batches (25) to prevent cross-film hallucinations
+      const raw = await generateWithAI(prompt, {
+        jsonMode: "array",
+        fast: false,
+      });
+
+      const arr = parseJsonSafely<
+        Array<{
+          i?: unknown;
+          t?: unknown;
+          title?: unknown;
+          g?: unknown;
+          d?: unknown;
+          a?: unknown;
+        }>
+      >(raw, "[");
+
+      const claimed = new Set<number>();
+      const updates: Record<string, FilmMeta> = {};
+
+      for (const o of arr) {
+        const resolved = resolveBatchFilm(batch, o, claimed);
+        if (!resolved) continue;
+        const film = resolved.film;
+        const k = filmKey(film);
+        const prev = metaSnapshot[k] || { g: "", m: 0, d: "", c: "" };
+
+        const rawGenre = String(o.g || "").trim();
+        const genre =
+          rawGenre && rawGenre.toLowerCase() !== "null"
+            ? rawGenre
+            : prev.g || "";
+
+        const dir =
+          !forceOverwrite && nz(prev.d) ? prev.d : cleanPeopleValue(o.d);
+
+        const isAnim = /animazion|animat|anime|cartoon/i.test(genre);
+        const act = isAnim
+          ? ""
+          : !forceOverwrite && nz(prev.a)
+          ? prev.a || ""
+          : cleanPeopleValue(o.a);
+
+        const nextMeta: FilmMeta = {
+          g: genre,
+          m: prev.m || 0,
+          d: dir,
+          c: prev.c || "",
+          ...(act ? { a: act } : {}),
+          ...(prev.mc ? { mc: true } : {}),
+        };
+
+        if (dir && (act || isAnim)) {
+          delete nextMeta.pc;
+        }
+
+        updates[k] = nextMeta;
+        metaSnapshot[k] = nextMeta;
+      }
+
+      const omitted = batch.filter((_, idx) => !claimed.has(idx));
+      return { updates, omitted };
+    };
 
     try {
-      for (let i = 0; i < queue.length; i += 45) {
+      for (let i = 0; i < queue.length; i += 25) {
         if (stopPeopleRef.current) {
           setPeopleProgress(
             `Analisi in pausa (${processed}/${queue.length} elaborati in questa sessione). Puoi riprendere quando vuoi.`
@@ -197,43 +360,52 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
           break;
         }
 
-        const batch = queue.slice(i, i + 45);
+        const batch = queue.slice(i, i + 25);
         setPeopleProgress(
-          `Analizzo registi e attori… ${processed}/${queue.length} film mancanti`
+          `Analizzo registi e attori reali… ${processed}/${queue.length} film`
         );
 
-        const prompt =
-          `Per ciascun film indica regista ("d") e i 3 attori principali separati da " / " ("a"). Usa i nomi originali più noti. Se non conosci un campo con certezza usa null: non inventare mai.\nRispondi SOLO con un array JSON: [{"i":0,"d":"Regista","a":"Attore 1 / Attore 2 / Attore 3"}]\n\n` +
-          batch.map((x, j) => `${j}. ${canonicalLabel(x)}`).join("\n");
+        const firstPass = await processPeopleBatch(batch);
+        const combinedUpdates: Record<string, FilmMeta> = {
+          ...firstPass.updates,
+        };
 
-        const raw = await generateWithAI(prompt, {
-          jsonMode: "array",
-          fast: true,
-        });
-
-        const arr = parseJsonSafely<
-          Array<{ i: number; d?: unknown; a?: unknown }>
-        >(raw, "[");
-
-        const updates: Record<string, FilmMeta> = {};
-        for (const o of arr) {
-          const film = batch[o.i];
-          if (!film) continue;
-          const k = filmKey(film);
-          const prev = lib.meta[k] || { g: "", m: 0, d: "", c: "" };
-          const dir = nz(prev.d) ? prev.d : cleanPeopleValue(o.d);
-          const act = nz(prev.a) ? prev.a || "" : cleanPeopleValue(o.a);
-          updates[k] = {
-            g: prev.g || "",
-            m: prev.m || 0,
-            d: dir,
-            c: prev.c || "",
-            ...(act ? { a: act } : {}),
-          };
+        if (firstPass.omitted.length > 0 && !stopPeopleRef.current) {
+          setPeopleProgress(
+            `Riprovo ${firstPass.omitted.length} titoli saltati… (${processed}/${queue.length})`
+          );
+          for (let r = 0; r < firstPass.omitted.length; r += 12) {
+            const sub = firstPass.omitted.slice(r, r + 12);
+            const retryPass = await processPeopleBatch(sub);
+            Object.assign(combinedUpdates, retryPass.updates);
+          }
         }
 
-        if (Object.keys(updates).length > 0) {
-          onMergeMeta(updates);
+        for (const f of batch) {
+          const k = filmKey(f);
+          const cur = combinedUpdates[k] || metaSnapshot[k];
+          const anim = isAnimationFilm(cur);
+          if (!cur || !nz(cur.d) || (!anim && !nz(cur.a))) {
+            const finalized: FilmMeta = {
+              g: cur?.g || "",
+              m: cur?.m || 0,
+              d: cur?.d || "",
+              c: cur?.c || "",
+              ...(cur?.a && !anim ? { a: cur.a } : {}),
+              ...(cur?.mc ? { mc: true } : {}),
+              pc: true,
+            };
+            combinedUpdates[k] = finalized;
+            metaSnapshot[k] = finalized;
+            excludedAnimOrNoCast += 1;
+          } else {
+            if (anim && !nz(cur.a)) excludedAnimOrNoCast += 1;
+            else enrichedNow += 1;
+          }
+        }
+
+        if (Object.keys(combinedUpdates).length > 0) {
+          onMergeMeta(combinedUpdates);
         }
 
         processed += batch.length;
@@ -241,7 +413,9 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
 
       if (!stopPeopleRef.current) {
         setPeopleProgress(
-          `Completato: elaborati ${processed} film visti.`
+          excludedAnimOrNoCast > 0
+            ? `Completato: ${enrichedNow} film con regista e attori reali, ${excludedAnimOrNoCast} film animati/senza cast esclusi dagli attori.`
+            : `Completato: elaborati e aggiornati tutti i ${processed} film visti.`
         );
       }
     } catch (err) {
@@ -251,6 +425,59 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
     } finally {
       setBusyPeople(false);
     }
+  };
+
+  const handleEnrichSeenPeople = () => {
+    void runEnrichSeenPeople();
+  };
+
+  const handleRetryCheckedPeople = () => {
+    const toRetry: SeenFilmItem[] = [];
+    const clearedUpdates: Record<string, FilmMeta> = {};
+    for (const film of allSeen) {
+      const k = filmKey(film);
+      const m = lib.meta[k];
+      if (m?.pc) {
+        const next = { ...m };
+        delete next.pc;
+        clearedUpdates[k] = next;
+        toRetry.push(film);
+      }
+    }
+    if (Object.keys(clearedUpdates).length > 0) {
+      onMergeMeta(clearedUpdates);
+    }
+    if (toRetry.length > 0) {
+      void runEnrichSeenPeople(toRetry, { forceOverwrite: true });
+    }
+  };
+
+  const handleReenrichFilms = (films: SeenFilmItem[]) => {
+    if (!films.length || busyPeople) return;
+    void runEnrichSeenPeople(films, { forceOverwrite: true });
+  };
+
+  const handleResetAndReenrichPeople = () => {
+    if (busyPeople) return;
+    const seenKeys = new Set(allSeen.map((f) => filmKey(f)));
+    const clearedUpdates: Record<string, FilmMeta> = {};
+    for (const k of seenKeys) {
+      const m = lib.meta[k];
+      if (m && (m.a || m.pc)) {
+        const next: FilmMeta = { ...m };
+        delete next.a;
+        delete next.pc;
+        clearedUpdates[k] = next;
+      }
+    }
+    if (Object.keys(clearedUpdates).length > 0) {
+      onMergeMeta(clearedUpdates);
+    }
+    const orderedQueue = [...allSeen].sort(
+      (a, b) =>
+        (b.r ?? 0) - (a.r ?? 0) || (Number(b.y) || 0) - (Number(a.y) || 0)
+    );
+    void runEnrichSeenPeople(orderedQueue, { forceOverwrite: true });
   };
 
   const handleStopEnrichPeople = () => {
@@ -268,6 +495,9 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
         peopleProgress={peopleProgress}
         onEnrichPeople={handleEnrichSeenPeople}
         onStopEnrichPeople={handleStopEnrichPeople}
+        onRetryCheckedPeople={handleRetryCheckedPeople}
+        onReenrichFilms={handleReenrichFilms}
+        onResetAndReenrichPeople={handleResetAndReenrichPeople}
       />
 
       <section className="rounded-2xl border border-slate-200/90 bg-white p-6 dark:border-slate-800 dark:bg-[#131722]">

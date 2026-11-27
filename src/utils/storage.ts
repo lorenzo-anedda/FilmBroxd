@@ -96,6 +96,8 @@ export function loadInitialLibraryState(): LibraryState {
       d: bad(c.d) ? f[2] : c.d,
       c: bad(c.c) ? f[3] : c.c,
       ...(c.a ? { a: c.a } : {}),
+      ...(c.pc ? { pc: true } : {}),
+      ...(c.mc ? { mc: true } : {}),
     };
   }
   for (const k of purgeSet) {
@@ -106,13 +108,15 @@ export function loadInitialLibraryState(): LibraryState {
   }
   for (const k in OVR_META) {
     const f = OVR_META[k];
-    const prevA = lib.meta[k]?.a;
+    const prev = lib.meta[k];
     lib.meta[k] = {
       g: f[0],
       m: f[1],
       d: f[2],
       c: f[3],
-      ...(prevA ? { a: prevA } : {}),
+      ...(prev?.a ? { a: prev.a } : {}),
+      ...(prev?.pc ? { pc: true } : {}),
+      ...(prev?.mc ? { mc: true } : {}),
     };
   }
   const birdKey = "the bird with the crystal plumage|1970";
