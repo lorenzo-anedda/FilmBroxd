@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { X, ExternalLink, Film } from "lucide-react";
-import { canonicalLabel, displayTitle } from "../utils/filmLogic";
+import React, { useEffect } from "react";
+import { X, ExternalLink } from "lucide-react";
+import { canonicalLabel, displayTitle, filmKey } from "../utils/filmLogic";
+import { PosterImage } from "./PosterImage";
 import type { ActivePick, FilmMeta, FilmPreviewData } from "../types";
 
 interface FilmPreviewModalProps {
   pick: ActivePick | null;
   preview?: FilmPreviewData;
   meta?: FilmMeta;
+  onRequestPreview?: (pick: ActivePick) => void;
   onClose: () => void;
   onWatchTonight: (pick: ActivePick) => void;
 }
@@ -15,15 +17,10 @@ export const FilmPreviewModal: React.FC<FilmPreviewModalProps> = ({
   pick,
   preview,
   meta,
+  onRequestPreview,
   onClose,
   onWatchTonight,
 }) => {
-  const [imgError, setImgError] = useState(false);
-
-  useEffect(() => {
-    setImgError(false);
-  }, [pick?.id, preview?.posterUrl]);
-
   useEffect(() => {
     if (!pick) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -38,7 +35,6 @@ export const FilmPreviewModal: React.FC<FilmPreviewModalProps> = ({
   const title = displayTitle(pick.film);
   const showOriginal =
     pick.film.it && pick.film.it.toLowerCase() !== pick.film.t.toLowerCase();
-  const posterUrl = !imgError ? preview?.posterUrl : null;
   const letterboxdUrl = `https://letterboxd.com/search/${encodeURIComponent(
     canonicalLabel(pick.film)
   )}/`;
@@ -72,30 +68,19 @@ export const FilmPreviewModal: React.FC<FilmPreviewModalProps> = ({
         </button>
 
         <div className="flex flex-col gap-5 p-5 sm:flex-row sm:gap-6 sm:p-7">
-          {/* Poster */}
+          {/* Poster with IntersectionObserver lazy loading & dominant-color placeholder */}
           <div className="mx-auto w-40 shrink-0 sm:mx-0 sm:w-48">
             <div className="aspect-[2/3] w-full overflow-hidden rounded-xl border border-slate-200 bg-[#F5F7FA] dark:border-slate-800 dark:bg-[#0B0E14]">
-              {preview?.loading ? (
-                <div className="h-full w-full animate-pulse bg-slate-200 dark:bg-slate-800" />
-              ) : posterUrl ? (
-                <img
-                  src={posterUrl}
-                  alt={`Locandina di ${title}`}
-                  referrerPolicy="no-referrer"
-                  onError={() => setImgError(true)}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-between p-4 text-center">
-                  <span className="font-mono text-[11px] uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                    {pick.film.y || "Film"}
-                  </span>
-                  <Film className="h-8 w-8 text-slate-300 dark:text-slate-700" />
-                  <span className="line-clamp-3 font-display text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    {title}
-                  </span>
-                </div>
-              )}
+              <PosterImage
+                cacheKey={filmKey(pick.film)}
+                title={title}
+                year={pick.film.y}
+                posterUrl={preview?.posterUrl}
+                loading={preview?.loading}
+                rootMargin="0px"
+                className="h-full w-full"
+                onVisible={() => onRequestPreview?.(pick)}
+              />
             </div>
           </div>
 

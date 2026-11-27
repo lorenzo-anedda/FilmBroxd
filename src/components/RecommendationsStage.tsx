@@ -25,6 +25,7 @@ interface RecommendationsStageProps {
   onOpenProfile: () => void;
   aiEnabled: boolean;
   previews: Record<string, FilmPreviewData>;
+  onRequestPreview: (pick: ActivePick) => void;
   onOpenPreview: (pick: ActivePick) => void;
   onWatchTonight: (pick: ActivePick) => void;
   onReplace: (pick: ActivePick) => void;
@@ -53,6 +54,7 @@ export const RecommendationsStage: React.FC<RecommendationsStageProps> = ({
   onOpenProfile,
   aiEnabled,
   previews,
+  onRequestPreview,
   onOpenPreview,
   onWatchTonight,
   onReplace,
@@ -186,6 +188,7 @@ export const RecommendationsStage: React.FC<RecommendationsStageProps> = ({
                     indexLabel={String(idx + 1).padStart(2, "0")}
                     aiEnabled={aiEnabled}
                     preview={previews[filmKey(p.film)]}
+                    onVisible={onRequestPreview}
                     onOpenPreview={onOpenPreview}
                     onWatchTonight={onWatchTonight}
                     onReplace={onReplace}
@@ -220,6 +223,7 @@ export const RecommendationsStage: React.FC<RecommendationsStageProps> = ({
                     indexLabel="Bonus"
                     aiEnabled={aiEnabled}
                     preview={previews[filmKey(p.film)]}
+                    onVisible={onRequestPreview}
                     onOpenPreview={onOpenPreview}
                     onWatchTonight={onWatchTonight}
                     onReplace={onReplace}

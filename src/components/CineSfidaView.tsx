@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Clapperboard,
-  Film,
   Shuffle,
   Trophy,
   Volume2,
@@ -25,6 +24,7 @@ import {
 } from "../utils/tournament";
 import { CineSfidaBracket } from "./CineSfidaBracket";
 import { CineSfidaVictory } from "./CineSfidaVictory";
+import { PosterImage } from "./PosterImage";
 import type {
   FilmItem,
   FilmMeta,
@@ -151,25 +151,15 @@ const ContenderCard: React.FC<{
           {/* Visible prominent movie poster */}
           <div className="mx-auto w-36 shrink-0 sm:mx-0 sm:w-40">
             <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100 dark:border-slate-800 dark:bg-[#0B0E14]">
-              {preview?.posterUrl ? (
-                <img
-                  src={preview.posterUrl}
-                  alt={`Locandina di ${title}`}
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-slate-100 to-slate-200/80 p-3 text-center dark:from-slate-900 dark:to-[#0B0E14]">
-                  <Film
-                    className={`h-7 w-7 text-slate-400 dark:text-slate-600 ${
-                      preview?.loading ? "animate-pulse" : ""
-                    }`}
-                  />
-                  <span className="line-clamp-3 font-display text-xs font-medium text-slate-500 dark:text-slate-400">
-                    {preview?.loading ? "Carico locandina…" : title}
-                  </span>
-                </div>
-              )}
+              <PosterImage
+                cacheKey={filmKey(film)}
+                title={title}
+                year={film.y}
+                posterUrl={preview?.posterUrl}
+                loading={preview?.loading}
+                className="h-full w-full"
+                imgClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              />
             </div>
           </div>
 

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { DISCARD_REASONS, displayTitle } from "../utils/filmLogic";
+import React, { useState } from "react";
+import { DISCARD_REASONS, displayTitle, filmKey } from "../utils/filmLogic";
+import { PosterImage } from "./PosterImage";
 import type { ActivePick, FilmPreviewData } from "../types";
 import {
   MoreHorizontal,
@@ -8,7 +9,6 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
-  Film,
 } from "lucide-react";
 
 interface PickCardProps {
@@ -16,6 +16,7 @@ interface PickCardProps {
   indexLabel: string;
   aiEnabled: boolean;
   preview?: FilmPreviewData;
+  onVisible?: (pick: ActivePick) => void;
   onOpenPreview: (pick: ActivePick) => void;
   onWatchTonight: (pick: ActivePick) => void;
   onReplace: (pick: ActivePick) => void;
@@ -33,6 +34,7 @@ export const PickCard: React.FC<PickCardProps> = ({
   indexLabel,
   aiEnabled,
   preview,
+  onVisible,
   onOpenPreview,
   onWatchTonight,
   onReplace,
@@ -45,11 +47,6 @@ export const PickCard: React.FC<PickCardProps> = ({
   onNoteReason,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [imgError, setImgError] = useState(false);
-
-  useEffect(() => {
-    setImgError(false);
-  }, [pick.id, preview?.posterUrl]);
 
   if (pick.status === "done") {
     return (
@@ -78,40 +75,27 @@ export const PickCard: React.FC<PickCardProps> = ({
   }
 
   const title = displayTitle(pick.film);
-  const posterUrl = !imgError ? preview?.posterUrl : null;
 
   return (
     <article className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-[#131722] dark:hover:border-slate-700">
       <div className="flex items-start gap-4 sm:gap-5">
-        {/* Poster thumbnail button */}
+        {/* Poster thumbnail button with IntersectionObserver lazy loading */}
         <button
           type="button"
           onClick={() => onOpenPreview(pick)}
           aria-label={`Apri anteprima di ${title}`}
           className="group relative aspect-[2/3] w-20 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-[#F5F7FA] transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-[#2563EB] sm:w-24 dark:border-slate-800 dark:bg-[#0B0E14] dark:focus:ring-[#3B82F6]"
         >
-          {preview?.loading ? (
-            <div className="h-full w-full animate-pulse bg-slate-200 dark:bg-slate-800" />
-          ) : posterUrl ? (
-            <img
-              src={posterUrl}
-              alt={`Locandina di ${title}`}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onError={() => setImgError(true)}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-between p-2 text-center">
-              <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                {pick.film.y || "Film"}
-              </span>
-              <Film className="h-5 w-5 text-slate-300 dark:text-slate-700" />
-              <span className="line-clamp-2 font-display text-[10px] font-semibold leading-tight text-slate-500 dark:text-slate-400">
-                {title}
-              </span>
-            </div>
-          )}
+          <PosterImage
+            cacheKey={filmKey(pick.film)}
+            title={title}
+            year={pick.film.y}
+            posterUrl={preview?.posterUrl}
+            loading={preview?.loading}
+            compactFallback
+            className="h-full w-full"
+            onVisible={() => onVisible?.(pick)}
+          />
         </button>
 
         {/* Main title + metadata + short description */}

@@ -1,13 +1,12 @@
+import {
+  getCachedPreview,
+  setCachedPreview,
+} from "./posterCache";
 import type { FilmItem, FilmPreviewData } from "../types";
 
 export interface AIError extends Error {
   code?: string;
 }
-
-const clientPreviewCache = new Map<
-  string,
-  { data: FilmPreviewData; isFull: boolean }
->();
 
 export function preloadPosterImage(url?: string | null): void {
   if (!url || typeof Image === "undefined") return;
@@ -27,9 +26,14 @@ export async function fetchFilmPreview(
 ): Promise<FilmPreviewData> {
   const fast = Boolean(options?.fast);
   const key = `${film.t.toLowerCase()}|${film.y || ""}|${(director || "").toLowerCase()}`;
-  const cached = clientPreviewCache.get(key);
+  const cached = getCachedPreview(key);
   if (cached && (fast || cached.isFull)) {
-    return cached.data;
+    return {
+      posterUrl: cached.posterUrl,
+      description: cached.description,
+      wikiUrl: cached.wikiUrl,
+      loading: false,
+    };
   }
 
   const params = new URLSearchParams({ title: film.t });
@@ -55,9 +59,7 @@ export async function fetchFilmPreview(
       loading: false,
     };
     preloadPosterImage(result.posterUrl);
-    if (!cached || !cached.isFull || !fast) {
-      clientPreviewCache.set(key, { data: result, isFull: !fast });
-    }
+    setCachedPreview(key, result, !fast);
     return result;
   } catch {
     return { posterUrl: null, description: "", wikiUrl: null, loading: false };

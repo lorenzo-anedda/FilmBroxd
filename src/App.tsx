@@ -95,7 +95,7 @@ export default function App() {
 
   // Recommendations stage
   const [picks, setPicks] = useState<ActivePick[]>([]);
-  const previews = useFilmPreviews(picks);
+  const { previews, requestPreview } = useFilmPreviews(picks);
   const [previewPick, setPreviewPick] = useState<ActivePick | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [stageNotice, setStageNotice] = useState<string>("");
@@ -1056,6 +1056,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
               onOpenProfile={() => setTab("profilo")}
               aiEnabled={aiAvailable && engineMode === "ai"}
               previews={previews}
+              onRequestPreview={requestPreview}
               onOpenPreview={setPreviewPick}
               onWatchTonight={handleWatchTonight}
               onReplace={handleReplace}
@@ -1190,6 +1191,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
         pick={previewPick}
         preview={previewPick ? previews[filmKey(previewPick.film)] : undefined}
         meta={previewPick ? lib.meta[filmKey(previewPick.film)] : undefined}
+        onRequestPreview={requestPreview}
         onClose={() => setPreviewPick(null)}
         onWatchTonight={handleWatchTonight}
       />

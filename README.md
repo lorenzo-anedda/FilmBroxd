@@ -31,6 +31,7 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │   │   ├── filmHelpers.ts            # Normalizzazione titoli, storico e filtri
 │   │   ├── recommender.ts            # Motore di punteggio locale e builder dei prompt AI
 │   │   ├── parsers.ts                # Parser JSON tollerante e import CSV/TXT
+│   │   ├── posterCache.ts            # Cache persistente anteprime e colore dominante locandine
 │   │   ├── profileStats.ts           # Calcolo statistiche su voti, decenni, registi e attori
 │   │   ├── storage.ts                # Persistenza e migrazione su localStorage
 │   │   ├── tournament.ts             # Logica tabellone a 8 o 16 film (Quarti/Ottavi-Finale)
@@ -38,6 +39,7 @@ Consulente cinematografico personale per scegliere cosa guardare dalla propria w
 │   └── components/
 │       ├── HeaderBar.tsx             # Header sticky con logo proiettore animato e navigazione
 │       ├── ProjectorLogo.tsx         # Logo SVG animato del proiettore cinematografico
+│       ├── PosterImage.tsx           # Lazy loading locandine con IntersectionObserver e placeholder colore
 │       ├── EveningControls.tsx       # Pannello mood, contesto, filtri e motore di scelta
 │       ├── RecommendationsStage.tsx  # Colonna risultati e riepilogo archivio
 │       ├── PickCard.tsx              # Scheda singolo film con locandina, trama e azioni
