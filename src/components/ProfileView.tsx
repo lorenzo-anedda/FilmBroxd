@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import {
+  canonicalFilmIdentity,
   canonicalLabel,
   filmKey,
   getAllSeen,
@@ -60,14 +61,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     [fullWatch, lib.meta]
   );
 
-  const missingList = useMemo(
-    () =>
-      fullWatch.filter((x) => {
-        const m = lib.meta[filmKey(x)];
-        return !m || (!nz(m.g) && !(m.m > 0) && !nz(m.d) && !m.mc);
-      }),
-    [fullWatch, lib.meta]
-  );
+  const missingList = useMemo(() => {
+    const seenCanon = new Set<string>();
+    const out: FilmItem[] = [];
+    for (const x of fullWatch) {
+      const m = lib.meta[filmKey(x)];
+      if (m && (nz(m.g) || m.m > 0 || nz(m.d) || m.mc)) continue;
+      const canon = canonicalFilmIdentity(x);
+      if (seenCanon.has(canon)) continue;
+      seenCanon.add(canon);
+      out.push(x);
+    }
+    return out;
+  }, [fullWatch, lib.meta]);
 
   const handleGenerateProfile = async () => {
     const rated = allSeen
@@ -110,14 +116,14 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
     let done = 0;
     const metaSnapshot: Record<string, FilmMeta> = { ...lib.meta };
 
-    const processMetaBatch = async (batch: FilmItem[], fastMode: boolean) => {
+    const processMetaBatch = async (batch: FilmItem[]) => {
       const prompt =
         `Per ciascun film dai: genere (max 2, in italiano, separati da /), durata in minuti (intero, oppure null se non sei sicuro), regista, paese. Se non conosci il film con certezza usa null: non inventare.\nRispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogni indice da 0 a ${batch.length - 1}: [{"i":0,"g":"...","m":100,"d":"...","c":"..."}]\n\n` +
         batch.map((x, j) => `${j}. ${canonicalLabel(x)}`).join("\n");
 
       const raw = await generateWithAI(prompt, {
         jsonMode: "array",
-        fast: fastMode,
+        fast: true,
       });
       const arr = parseJsonSafely<
         Array<{
@@ -139,11 +145,16 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
         if (!resolved) continue;
         const k = filmKey(resolved.film);
         const prev = metaSnapshot[k];
+        const parsedRuntime = Number(o.m);
+        const validRuntime =
+          Number.isFinite(parsedRuntime) && parsedRuntime > 0 && parsedRuntime <= 900
+            ? Math.round(parsedRuntime)
+            : 0;
         const nextMeta: FilmMeta = {
-          g: o.g && o.g !== "null" ? o.g : prev?.g || "",
-          m: Number(o.m) || prev?.m || 0,
-          d: o.d && o.d !== "null" ? o.d : prev?.d || "",
-          c: o.c && o.c !== "null" ? o.c : prev?.c || "",
+          g: nz(prev?.g) ? prev!.g : o.g && o.g !== "null" ? o.g : prev?.g || "",
+          m: prev?.m && prev.m > 0 ? prev.m : validRuntime || prev?.m || 0,
+          d: nz(prev?.d) ? prev!.d : o.d && o.d !== "null" ? o.d : prev?.d || "",
+          c: nz(prev?.c) ? prev!.c : o.c && o.c !== "null" ? o.c : prev?.c || "",
           ...(prev?.a ? { a: prev.a } : {}),
           ...(prev?.pc ? { pc: true } : {}),
         };
@@ -165,16 +176,17 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
           `Arricchisco… ${enrichedCount + done}/${fullWatch.length} film`
         );
 
-        const firstPass = await processMetaBatch(batch, batch.length > 20);
-        const combinedUpdates: Record<string, FilmMeta> = {
-          ...firstPass.updates,
-        };
+        const firstPass = await processMetaBatch(batch);
+        if (Object.keys(firstPass.updates).length > 0) {
+          onMergeMeta(firstPass.updates);
+        }
 
         if (firstPass.omitted.length > 0) {
+          const retryUpdates: Record<string, FilmMeta> = {};
           for (let r = 0; r < firstPass.omitted.length; r += 15) {
             const sub = firstPass.omitted.slice(r, r + 15);
-            const retryPass = await processMetaBatch(sub, false);
-            Object.assign(combinedUpdates, retryPass.updates);
+            const retryPass = await processMetaBatch(sub);
+            Object.assign(retryUpdates, retryPass.updates);
             for (const x of retryPass.omitted) {
               const k = filmKey(x);
               const prev = metaSnapshot[k];
@@ -187,15 +199,15 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
                 ...(prev?.pc ? { pc: true } : {}),
                 mc: true,
               };
-              combinedUpdates[k] = marked;
+              retryUpdates[k] = marked;
               metaSnapshot[k] = marked;
             }
           }
+          if (Object.keys(retryUpdates).length > 0) {
+            onMergeMeta(retryUpdates);
+          }
         }
 
-        if (Object.keys(combinedUpdates).length > 0) {
-          onMergeMeta(combinedUpdates);
-        }
         done += batch.length;
       }
       setStatusMsg("Fatto: lista arricchita.");
@@ -244,6 +256,9 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
         const firstPass = await processPeopleBatch(batch, metaSnapshot, {
           forceOverwrite,
         });
+        if (Object.keys(firstPass.updates).length > 0) {
+          onMergeMeta(firstPass.updates);
+        }
         const combinedUpdates: Record<string, FilmMeta> = {
           ...firstPass.updates,
         };
@@ -257,7 +272,10 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
             const retryPass = await processPeopleBatch(sub, metaSnapshot, {
               forceOverwrite,
             });
-            Object.assign(combinedUpdates, retryPass.updates);
+            if (Object.keys(retryPass.updates).length > 0) {
+              onMergeMeta(retryPass.updates);
+              Object.assign(combinedUpdates, retryPass.updates);
+            }
           }
         }
 

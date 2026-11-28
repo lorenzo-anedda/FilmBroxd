@@ -1,9 +1,8 @@
 import { Router } from "express";
 import {
-  extractErrorDetails,
   generateWithRetries,
   getAIClient,
-  isOverloadedOrTransient,
+  toSafeClientAiError,
 } from "../services/geminiService.ts";
 
 export const aiRouter = Router();
@@ -58,49 +57,24 @@ aiRouter.post("/ai/generate", async (req, res) => {
       ? (body.jsonMode as "array" | "object" | "text")
       : "text";
 
+  const clientId = req.ip || req.socket?.remoteAddress || "local";
+
   try {
     const text = await generateWithRetries(ai, {
       prompt: body.prompt,
       jsonMode,
       fast: Boolean(body.fast),
+      clientId,
     });
     res.json({ text });
   } catch (err: unknown) {
-    const { status, message } = extractErrorDetails(err);
-
-    if (status === 429 || /RESOURCE_EXHAUSTED|quota|rate/i.test(message)) {
-      res.status(429).json({
-        code: "rate_limited",
-        error: "Limite richieste AI raggiunto, riprova tra poco.",
-      });
-      return;
+    const safeErr = toSafeClientAiError(err);
+    if (safeErr.retryAfterSec) {
+      res.setHeader("Retry-After", String(safeErr.retryAfterSec));
     }
-
-    if (
-      status === 400 ||
-      status === 401 ||
-      status === 403 ||
-      /API_KEY_INVALID|PERMISSION_DENIED/i.test(message)
-    ) {
-      res.status(status).json({
-        code: "auth_error",
-        error: "Errore di autenticazione API Gemini: verifica Settings > Secrets.",
-      });
-      return;
-    }
-
-    if (isOverloadedOrTransient(status, message)) {
-      res.status(503).json({
-        code: "overloaded",
-        error:
-          "Modello AI momentaneamente sovraccarico per traffico elevato. Riprova tra qualche secondo.",
-      });
-      return;
-    }
-
-    res.status(500).json({
-      code: "ai_error",
-      error: "Errore temporaneo del servizio AI.",
+    res.status(safeErr.status).json({
+      code: safeErr.code,
+      error: safeErr.error,
     });
   }
 });

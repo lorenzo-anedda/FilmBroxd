@@ -7,7 +7,8 @@ import type { ActivePick, FilmPreviewData } from "../types";
 export function useFilmPreviews(picks: ActivePick[]) {
   const [previews, setPreviews] = useState<Record<string, FilmPreviewData>>({});
   const mountedRef = useRef<boolean>(true);
-  const fetchedKeysRef = useRef<Set<string>>(new Set());
+  const fastFetchedKeysRef = useRef<Set<string>>(new Set());
+  const fullFetchedKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     mountedRef.current = true;
@@ -38,8 +39,9 @@ export function useFilmPreviews(picks: ActivePick[]) {
             wikiUrl: cached.wikiUrl,
             loading: false,
           };
+          fastFetchedKeysRef.current.add(key);
           if (cached.isFull) {
-            fetchedKeysRef.current.add(key);
+            fullFetchedKeysRef.current.add(key);
           }
           changed = true;
         }
@@ -48,14 +50,14 @@ export function useFilmPreviews(picks: ActivePick[]) {
     });
   }, [picks]);
 
-  // Triggered lazily via IntersectionObserver when a card or modal enters viewport
+  // Automatic card loading: fast mode only (posters & Wikipedia sources, zero Gemini calls)
   const requestPreview = useCallback((pick: ActivePick) => {
     const key = filmKey(pick.film);
-    if (fetchedKeysRef.current.has(key)) return;
-    fetchedKeysRef.current.add(key);
+    if (fastFetchedKeysRef.current.has(key)) return;
+    fastFetchedKeysRef.current.add(key);
 
     setPreviews((prev) => {
-      if (prev[key] && !prev[key].loading && prev[key].description.length >= 80) {
+      if (prev[key] && !prev[key].loading) {
         return prev;
       }
       return {
@@ -66,6 +68,27 @@ export function useFilmPreviews(picks: ActivePick[]) {
 
     fetchFilmPreview(pick.film, pick.regista, { fast: true }).then((fastData) => {
       if (!mountedRef.current) return;
+      setPreviews((cur) => ({
+        ...cur,
+        [key]: { ...fastData, loading: false },
+      }));
+    });
+  }, []);
+
+  // Explicit detail modal open: reuses fast cache and triggers AI fallback only if synopsis < 80 chars
+  const requestFullPreview = useCallback((pick: ActivePick) => {
+    const key = filmKey(pick.film);
+    if (fullFetchedKeysRef.current.has(key)) return;
+    fullFetchedKeysRef.current.add(key);
+
+    setPreviews((prev) => ({
+      ...prev,
+      [key]: prev[key] || { posterUrl: null, description: "", loading: true },
+    }));
+
+    fetchFilmPreview(pick.film, pick.regista, { fast: true }).then((fastData) => {
+      if (!mountedRef.current) return;
+      fastFetchedKeysRef.current.add(key);
       setPreviews((cur) => ({
         ...cur,
         [key]: { ...fastData, loading: false },
@@ -85,5 +108,5 @@ export function useFilmPreviews(picks: ActivePick[]) {
     });
   }, []);
 
-  return { previews, requestPreview };
+  return { previews, requestPreview, requestFullPreview };
 }

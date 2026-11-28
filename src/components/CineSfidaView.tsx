@@ -381,7 +381,6 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
       return next;
     });
 
-    const missingSynopsisQueue: FilmItem[] = [];
     let cursor = 0;
 
     const runFastWorker = async () => {
@@ -392,38 +391,11 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
         const data = await fetchFilmPreview(f, meta?.d, { fast: true });
         if (!mountedRef.current) return;
         setPreviews((cur) => ({ ...cur, [k]: { ...data, loading: false } }));
-        if (!data.description || data.description.length < 70) {
-          missingSynopsisQueue.push(f);
-        }
       }
     };
 
     const workerCount = Math.min(6, films.length);
     await Promise.all(Array.from({ length: workerCount }, () => runFastWorker()));
-
-    let synCursor = 0;
-    const runSynopsisWorker = async () => {
-      while (synCursor < missingSynopsisQueue.length && mountedRef.current) {
-        const f = missingSynopsisQueue[synCursor++];
-        const k = filmKey(f);
-        const meta = lib.meta[k];
-        const fullData = await fetchFilmPreview(f, meta?.d, { fast: false });
-        if (!mountedRef.current) return;
-        setPreviews((cur) => ({
-          ...cur,
-          [k]: { ...fullData, loading: false },
-        }));
-      }
-    };
-
-    if (missingSynopsisQueue.length > 0 && mountedRef.current) {
-      await Promise.all(
-        Array.from(
-          { length: Math.min(3, missingSynopsisQueue.length) },
-          () => runSynopsisWorker()
-        )
-      );
-    }
   };
 
   const handleStartTournament = (

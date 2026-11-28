@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import {
   COUNTRY_FILTERS,
   OUTCOMES,
+  canonicalFilmIdentity,
   canonicalLabel,
   displayTitle,
   filmKey,
@@ -181,7 +182,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   const limit = currentTab === "d" ? 10 : limits[currentTab];
 
   const handleCompleteCountries = async () => {
-    const miss = stats.missingCountryFilms;
+    const seenCanon = new Set<string>();
+    const miss = stats.missingCountryFilms.filter((f) => {
+      const canon = canonicalFilmIdentity(f);
+      if (seenCanon.has(canon)) return false;
+      seenCanon.add(canon);
+      return true;
+    });
     if (!miss.length || enrichBusy) return;
     setEnrichBusy(true);
     setEnrichMsg("");
@@ -208,10 +215,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           if (x && o.c && o.c !== "null") {
             const k = filmKey(x);
             const existing = lib.meta[k] || { g: "", m: 0, d: "", c: "" };
-            updates[k] = { ...existing, c: String(o.c) };
+            if (!nz(existing.c)) {
+              updates[k] = { ...existing, c: String(o.c).trim() };
+            }
           }
         }
-        onMergeMeta(updates);
+        if (Object.keys(updates).length > 0) {
+          onMergeMeta(updates);
+        }
       }
       setEnrichMsg("Paesi aggiornati.");
     } catch (err) {

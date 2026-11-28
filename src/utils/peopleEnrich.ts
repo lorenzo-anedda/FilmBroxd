@@ -1,5 +1,11 @@
 import { generateWithAI } from "./aiClient";
-import { canonicalLabel, filmKey, normTitle, nz } from "./filmHelpers";
+import {
+  canonicalFilmIdentity,
+  canonicalLabel,
+  filmKey,
+  normTitle,
+  nz,
+} from "./filmHelpers";
 import { parseJsonSafely } from "./parsers";
 import { isAnimationFilm } from "./profileStats";
 import type { FilmItem, FilmMeta } from "../types";
@@ -83,7 +89,7 @@ Rispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogn
 
   const raw = await generateWithAI(prompt, {
     jsonMode: "array",
-    fast: false,
+    fast: true,
   });
 
   const arr = parseJsonSafely<
@@ -112,26 +118,40 @@ Rispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogn
 
     const rawGenre = String(o.g || "").trim();
     const genre =
-      rawGenre && rawGenre.toLowerCase() !== "null"
-        ? rawGenre
-        : prev.g || "";
+      !forceOverwrite && nz(prev.g)
+        ? prev.g
+        : rawGenre && rawGenre.toLowerCase() !== "null"
+          ? rawGenre
+          : prev.g || "";
 
     const dir =
-      !forceOverwrite && nz(prev.d) ? prev.d : cleanPeopleValue(o.d);
+      !forceOverwrite && nz(prev.d)
+        ? prev.d
+        : cleanPeopleValue(o.d) || (!forceOverwrite ? prev.d || "" : "");
 
     const isAnim = /animazion|animat|anime|cartoon/i.test(genre);
     const act = isAnim
       ? ""
       : !forceOverwrite && nz(prev.a)
-      ? prev.a || ""
-      : cleanPeopleValue(o.a);
+        ? prev.a || ""
+        : cleanPeopleValue(o.a) || (!forceOverwrite ? prev.a || "" : "");
 
     const rawCountry = String(o.c || "").trim();
     const country =
-      rawCountry && rawCountry.toLowerCase() !== "null"
-        ? rawCountry
-        : prev.c || "";
-    const runtime = Number(o.m) > 0 ? Math.round(Number(o.m)) : prev.m || 0;
+      !forceOverwrite && nz(prev.c)
+        ? prev.c
+        : rawCountry && rawCountry.toLowerCase() !== "null"
+          ? rawCountry
+          : prev.c || "";
+    const parsedRuntime = Number(o.m);
+    const validRuntime =
+      Number.isFinite(parsedRuntime) && parsedRuntime > 0 && parsedRuntime <= 900
+        ? Math.round(parsedRuntime)
+        : 0;
+    const runtime =
+      !forceOverwrite && prev.m > 0
+        ? prev.m
+        : validRuntime || prev.m || 0;
 
     const nextMeta: FilmMeta = {
       g: genre,
@@ -154,48 +174,104 @@ Rispondi SOLO con un array JSON valido contenente ESATTAMENTE un oggetto per ogn
   return { updates, omitted };
 }
 
+function buildCanonMetaIndex(metaSnapshot: Record<string, FilmMeta>): Map<string, FilmMeta> {
+  const index = new Map<string, FilmMeta>();
+  for (const [k, m] of Object.entries(metaSnapshot)) {
+    const sep = k.lastIndexOf("|");
+    const t = sep >= 0 ? k.slice(0, sep) : k;
+    const y = sep >= 0 ? k.slice(sep + 1) : "";
+    const canon = canonicalFilmIdentity({ t, y });
+    if (!index.has(canon)) {
+      index.set(canon, m);
+    }
+  }
+  return index;
+}
+
 export async function enrichNewFilmsWithAI<T extends FilmItem>(
   films: T[],
-  currentMeta: Record<string, FilmMeta>
-): Promise<{ updates: Record<string, FilmMeta>; enrichedCount: number }> {
+  currentMeta: Record<string, FilmMeta>,
+  options?: {
+    maxFilms?: number;
+    skipOmittedRetry?: boolean;
+    onBatchUpdates?: (updates: Record<string, FilmMeta>) => void;
+  }
+): Promise<{
+  updates: Record<string, FilmMeta>;
+  enrichedCount: number;
+  partialError?: unknown;
+}> {
   const metaSnapshot: Record<string, FilmMeta> = { ...currentMeta };
-  const queue = films.filter((f) => {
-    const m = metaSnapshot[filmKey(f)];
-    if (!m) return true;
-    const anim = isAnimationFilm(m);
-    return !nz(m.d) || (!anim && !nz(m.a) && !m.pc);
-  });
+  const canonMetaIndex = buildCanonMetaIndex(metaSnapshot);
+  const seenCanon = new Set<string>();
+  const queue: T[] = [];
 
-  if (!queue.length) {
+  for (const f of films) {
+    const canon = canonicalFilmIdentity(f);
+    if (seenCanon.has(canon)) continue;
+    seenCanon.add(canon);
+
+    const m = metaSnapshot[filmKey(f)] || canonMetaIndex.get(canon);
+    if (m) {
+      const anim = isAnimationFilm(m);
+      const alreadyComplete = nz(m.d) && (anim || nz(m.a) || Boolean(m.pc));
+      if (alreadyComplete) continue;
+    }
+    queue.push(f);
+  }
+
+  const cappedQueue =
+    options?.maxFilms && options.maxFilms > 0
+      ? queue.slice(0, options.maxFilms)
+      : queue;
+
+  if (!cappedQueue.length) {
     return { updates: {}, enrichedCount: 0 };
   }
 
   const allUpdates: Record<string, FilmMeta> = {};
   let enrichedCount = 0;
+  let partialError: unknown;
 
-  for (let i = 0; i < queue.length; i += 20) {
-    const batch = queue.slice(i, i + 20);
-    const firstPass = await processPeopleBatch(batch, metaSnapshot, {
-      includeFullMeta: true,
-    });
-    Object.assign(allUpdates, firstPass.updates);
-
-    if (firstPass.omitted.length > 0) {
-      const retryPass = await processPeopleBatch(
-        firstPass.omitted.slice(0, 12),
-        metaSnapshot,
-        { includeFullMeta: true }
-      );
-      Object.assign(allUpdates, retryPass.updates);
-    }
-
-    for (const f of batch) {
-      const m = allUpdates[filmKey(f)] || metaSnapshot[filmKey(f)];
-      if (m && (nz(m.d) || nz(m.a))) {
-        enrichedCount += 1;
+  for (let i = 0; i < cappedQueue.length; i += 20) {
+    const batch = cappedQueue.slice(i, i + 20);
+    try {
+      const firstPass = await processPeopleBatch(batch, metaSnapshot, {
+        includeFullMeta: true,
+      });
+      Object.assign(allUpdates, firstPass.updates);
+      if (Object.keys(firstPass.updates).length > 0) {
+        options?.onBatchUpdates?.(firstPass.updates);
       }
+
+      if (!options?.skipOmittedRetry && firstPass.omitted.length > 0) {
+        const retryPass = await processPeopleBatch(
+          firstPass.omitted.slice(0, 12),
+          metaSnapshot,
+          { includeFullMeta: true }
+        );
+        Object.assign(allUpdates, retryPass.updates);
+        if (Object.keys(retryPass.updates).length > 0) {
+          options?.onBatchUpdates?.(retryPass.updates);
+        }
+      }
+
+      for (const f of batch) {
+        const m = allUpdates[filmKey(f)] || metaSnapshot[filmKey(f)];
+        if (m && (nz(m.d) || nz(m.a))) {
+          enrichedCount += 1;
+        }
+      }
+    } catch (err) {
+      // Preserve any partial updates collected from previous batches/passes
+      partialError = err;
+      break;
     }
   }
 
-  return { updates: allUpdates, enrichedCount };
+  return {
+    updates: allUpdates,
+    enrichedCount,
+    ...(partialError ? { partialError } : {}),
+  };
 }

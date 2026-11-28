@@ -22,7 +22,15 @@ previewRouter.get("/film/preview", async (req, res) => {
   }
 
   try {
-    const result = await getFilmPreview({ title, itTitle, year, director, fast });
+    const clientId = req.ip || req.socket?.remoteAddress || "local";
+    const result = await getFilmPreview({
+      title,
+      itTitle,
+      year,
+      director,
+      fast,
+      clientId,
+    });
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.json(result);
   } catch {

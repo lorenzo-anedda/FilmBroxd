@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { TITLE_RULES } from "./constants/filters";
 import {
+  canonicalFilmIdentity,
   canonicalLabel,
   countUnknownMetadata,
   displayLabel,
@@ -46,6 +47,7 @@ import {
   checkAIHealth,
   formatAIError,
   generateWithAI,
+  recordLocalFallback,
   syncLetterboxdDiary,
 } from "./utils/aiClient";
 import { useFilmPreviews } from "./hooks/useFilmPreviews";
@@ -116,7 +118,7 @@ export default function App() {
 
   // Recommendations stage
   const [picks, setPicks] = useState<ActivePick[]>([]);
-  const { previews, requestPreview } = useFilmPreviews(picks);
+  const { previews, requestPreview, requestFullPreview } = useFilmPreviews(picks);
   const [previewPick, setPreviewPick] = useState<ActivePick | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [stageNotice, setStageNotice] = useState<string>("");
@@ -465,9 +467,11 @@ export default function App() {
       } catch (err) {
         usedLocal = true;
         localFallbackReason = formatAIError(err);
+        recordLocalFallback();
         arr = localRecommend(pool, allSeen, lib, selectedMoods, { rewatchMode });
       }
     } else {
+      recordLocalFallback();
       arr = localRecommend(pool, allSeen, lib, selectedMoods, { rewatchMode });
     }
 
@@ -680,6 +684,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
         if (pick.extra) throw err;
         const h0 = rankedPool(poolNow, allSeen, lib, selectedMoods)[0];
         if (!h0) throw err;
+        recordLocalFallback();
         const m0 = lib.meta[filmKey(h0.x)];
         o = {
           film: canonicalLabel(h0.x),
@@ -692,6 +697,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
       if (pick.extra) return null;
       const h0 = rankedPool(poolNow, allSeen, lib, selectedMoods)[0];
       if (!h0) return null;
+      recordLocalFallback();
       const m0 = lib.meta[filmKey(h0.x)];
       o = {
         film: canonicalLabel(h0.x),
@@ -1105,11 +1111,20 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
     let enrichedActorsCount = 0;
     if (aiAvailable && unseenEntries.length > 0) {
       try {
-        const toEnrich = unseenEntries.slice(0, 25).map((e) => ({
-          t: e.t,
-          y: e.y,
-        }));
-        const enriched = await enrichNewFilmsWithAI(toEnrich, lib.meta);
+        const seenCanon = new Set<string>();
+        const toEnrich: FilmItem[] = [];
+        for (const e of unseenEntries) {
+          const item = { t: e.t, y: e.y };
+          const canon = canonicalFilmIdentity(item);
+          if (seenCanon.has(canon)) continue;
+          seenCanon.add(canon);
+          toEnrich.push(item);
+          if (toEnrich.length >= 10) break;
+        }
+        const enriched = await enrichNewFilmsWithAI(toEnrich, lib.meta, {
+          maxFilms: 10,
+          skipOmittedRetry: true,
+        });
         if (Object.keys(enriched.updates).length > 0) {
           updateLib((prev) => ({
             ...prev,
@@ -1547,7 +1562,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
         pick={previewPick}
         preview={previewPick ? previews[filmKey(previewPick.film)] : undefined}
         meta={previewPick ? lib.meta[filmKey(previewPick.film)] : undefined}
-        onRequestPreview={requestPreview}
+        onRequestPreview={requestFullPreview}
         onClose={() => setPreviewPick(null)}
         onWatchTonight={handleWatchTonight}
       />

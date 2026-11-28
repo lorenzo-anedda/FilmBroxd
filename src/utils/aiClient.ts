@@ -41,6 +41,33 @@ export function preloadPosterImage(url?: string | null): void {
   }
 }
 
+const inFlightPreviewRequests = new Map<string, Promise<FilmPreviewData>>();
+const inFlightAiRequests = new Map<string, Promise<string>>();
+
+const clientMetrics = {
+  cacheHits: 0,
+  deduplicatedRequests: 0,
+  localFallbacks: 0,
+  rateLimitedErrors: 0,
+};
+
+export function recordLocalFallback(): void {
+  clientMetrics.localFallbacks += 1;
+}
+
+export function getClientAIMetrics() {
+  return { ...clientMetrics };
+}
+
+export function resetClientAIMetricsForTests(): void {
+  clientMetrics.cacheHits = 0;
+  clientMetrics.deduplicatedRequests = 0;
+  clientMetrics.localFallbacks = 0;
+  clientMetrics.rateLimitedErrors = 0;
+  inFlightPreviewRequests.clear();
+  inFlightAiRequests.clear();
+}
+
 export async function fetchFilmPreview(
   film: FilmItem,
   director?: string,
@@ -50,6 +77,7 @@ export async function fetchFilmPreview(
   const key = `${film.t.toLowerCase()}|${film.y || ""}|${(director || "").toLowerCase()}`;
   const cached = getCachedPreview(key);
   if (cached && (fast || cached.isFull)) {
+    clientMetrics.cacheHits += 1;
     return {
       posterUrl: cached.posterUrl,
       description: cached.description,
@@ -58,58 +86,92 @@ export async function fetchFilmPreview(
     };
   }
 
+  const flightKey = `${key}|${fast ? "1" : "0"}`;
+  const existingFlight = inFlightPreviewRequests.get(flightKey);
+  if (existingFlight) {
+    clientMetrics.deduplicatedRequests += 1;
+    return existingFlight;
+  }
+
   const params = new URLSearchParams({ title: film.t });
   if (film.it) params.set("itTitle", film.it);
   if (film.y) params.set("year", film.y);
   if (director) params.set("director", director);
   if (fast) params.set("fast", "1");
 
-  try {
-    const res = await fetch(`/api/film/preview?${params.toString()}`);
-    if (!res.ok) {
+  const promise = (async (): Promise<FilmPreviewData> => {
+    try {
+      const res = await fetch(`/api/film/preview?${params.toString()}`);
+      if (!res.ok) {
+        return { posterUrl: null, description: "", wikiUrl: null, loading: false };
+      }
+      const data = (await res.json()) as {
+        posterUrl?: string | null;
+        description?: string;
+        wikiUrl?: string | null;
+      };
+      const result: FilmPreviewData = {
+        posterUrl: safeExternalUrl(data.posterUrl),
+        description: String(data.description || "").trim(),
+        wikiUrl: safeExternalUrl(data.wikiUrl, ["wikipedia.org"]),
+        loading: false,
+      };
+      preloadPosterImage(result.posterUrl);
+      setCachedPreview(key, result, !fast);
+      return result;
+    } catch {
       return { posterUrl: null, description: "", wikiUrl: null, loading: false };
     }
-    const data = (await res.json()) as {
-      posterUrl?: string | null;
-      description?: string;
-      wikiUrl?: string | null;
-    };
-    const result: FilmPreviewData = {
-      posterUrl: safeExternalUrl(data.posterUrl),
-      description: String(data.description || "").trim(),
-      wikiUrl: safeExternalUrl(data.wikiUrl, ["wikipedia.org"]),
-      loading: false,
-    };
-    preloadPosterImage(result.posterUrl);
-    setCachedPreview(key, result, !fast);
-    return result;
-  } catch {
-    return { posterUrl: null, description: "", wikiUrl: null, loading: false };
-  }
+  })().finally(() => {
+    inFlightPreviewRequests.delete(flightKey);
+  });
+
+  inFlightPreviewRequests.set(flightKey, promise);
+  return promise;
 }
 
 export async function generateWithAI(
   prompt: string,
   options?: { jsonMode?: "array" | "object" | "text"; fast?: boolean }
 ): Promise<string> {
-  const res = await fetch("/api/ai/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt,
-      jsonMode: options?.jsonMode ?? "text",
-      fast: Boolean(options?.fast),
-    }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err: AIError = new Error(data.error || `Errore server (${res.status})`);
-    err.code = data.code || (res.status === 429 ? "rate_limited" : "ai_error");
-    throw err;
+  const jsonMode = options?.jsonMode ?? "text";
+  const fast = Boolean(options?.fast);
+  const flightKey = `${fast ? "1" : "0"}|${jsonMode}|${prompt}`;
+  const existingFlight = inFlightAiRequests.get(flightKey);
+  if (existingFlight) {
+    clientMetrics.deduplicatedRequests += 1;
+    return existingFlight;
   }
 
-  return String(data.text || "");
+  const promise = (async (): Promise<string> => {
+    const res = await fetch("/api/ai/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        jsonMode,
+        fast,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const code = data.code || (res.status === 429 ? "rate_limited" : "ai_error");
+      if (code === "rate_limited" || res.status === 429) {
+        clientMetrics.rateLimitedErrors += 1;
+      }
+      const err: AIError = new Error(data.error || `Errore server (${res.status})`);
+      err.code = code;
+      throw err;
+    }
+
+    return String(data.text || "");
+  })().finally(() => {
+    inFlightAiRequests.delete(flightKey);
+  });
+
+  inFlightAiRequests.set(flightKey, promise);
+  return promise;
 }
 
 export async function checkAIHealth(): Promise<boolean> {

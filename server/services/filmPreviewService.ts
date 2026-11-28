@@ -1,4 +1,5 @@
-import { getAIClient } from "./geminiService.ts";
+import { generateWithRetries, getAIClient } from "./geminiService.ts";
+import { geminiQuota } from "./geminiQuota.ts";
 
 export interface FilmPreviewResult {
   posterUrl: string | null;
@@ -539,7 +540,8 @@ async function resolveFilmPreview(
   itTitle: string,
   year: string,
   director: string,
-  fast: boolean
+  fast: boolean,
+  clientId?: string
 ): Promise<{ data: FilmPreviewResult; hasAiChecked: boolean }> {
   const enSearchQuery = [title, year, "film"].filter(Boolean).join(" ");
   const enUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
@@ -629,9 +631,10 @@ async function resolveFilmPreview(
 
   let hasAiChecked = hasItalianPlot;
   if (!hasItalianPlot && !fast) {
-    hasAiChecked = true;
     const ai = getAIClient();
-    if (ai) {
+    if (!ai) {
+      hasAiChecked = true;
+    } else {
       try {
         const contextHint = bestEn?.extract
           ? `\nContesto: ${bestEn.extract.slice(0, 350)}`
@@ -641,16 +644,21 @@ async function resolveFilmPreview(
         }"${year ? ` (${year})` : ""}${
           director ? ` diretto da ${director}` : ""
         }.${contextHint}\nRispondi solo con la descrizione, nessuna introduzione.`;
-        const aiResp = await ai.models.generateContent({
-          model: "gemini-3.1-flash-lite",
-          contents: prompt,
-        });
-        const aiDesc = (aiResp.text ?? "").trim();
+        const aiDesc = (
+          await generateWithRetries(ai, {
+            prompt,
+            jsonMode: "text",
+            fast: true,
+            clientId,
+          })
+        ).trim();
+        hasAiChecked = true;
         if (aiDesc.length >= 25) {
           description = aiDesc;
         }
       } catch {
-        // Keep Wikipedia intro / English extract fallback
+        // Keep Wikipedia intro fallback; do NOT mark hasAiChecked=true on transient/quota failure
+        hasAiChecked = false;
       }
     }
   }
@@ -671,6 +679,7 @@ export async function getFilmPreview(params: {
   year?: string;
   director?: string;
   fast?: boolean;
+  clientId?: string;
 }): Promise<FilmPreviewResult> {
   const title = params.title.trim();
   const itTitle = (params.itTitle || "").trim();
@@ -685,33 +694,45 @@ export async function getFilmPreview(params: {
     Date.now() - cached.ts < PREVIEW_TTL_MS &&
     (fast || cached.hasAiChecked)
   ) {
+    geminiQuota.recordCacheHit();
     return cached.data;
   }
 
   const flightKey = `${cacheKey}|${fast ? "fast" : "full"}`;
   let pending = inFlightPreviews.get(flightKey);
-  if (!pending) {
-    pending = resolveFilmPreview(title, itTitle, year, director, fast)
-      .then((resolved) => {
+  if (pending) {
+    geminiQuota.recordDeduplicatedRequest();
+    return pending;
+  }
+
+  pending = resolveFilmPreview(title, itTitle, year, director, fast, params.clientId)
+    .then((resolved) => {
+      if (previewCache.size >= 500) {
+        const now = Date.now();
+        for (const [k, entry] of previewCache.entries()) {
+          if (now - entry.ts >= PREVIEW_TTL_MS) {
+            previewCache.delete(k);
+          }
+        }
         if (previewCache.size >= 500) {
           const firstKey = previewCache.keys().next().value;
           if (firstKey) previewCache.delete(firstKey);
         }
-        const existing = previewCache.get(cacheKey);
-        if (!existing || !existing.hasAiChecked || resolved.hasAiChecked) {
-          previewCache.set(cacheKey, {
-            data: resolved.data,
-            hasAiChecked: resolved.hasAiChecked,
-            ts: Date.now(),
-          });
-        }
-        return resolved.data;
-      })
-      .finally(() => {
-        inFlightPreviews.delete(flightKey);
-      });
-    inFlightPreviews.set(flightKey, pending);
-  }
+      }
+      const existing = previewCache.get(cacheKey);
+      if (!existing || !existing.hasAiChecked || resolved.hasAiChecked) {
+        previewCache.set(cacheKey, {
+          data: resolved.data,
+          hasAiChecked: resolved.hasAiChecked,
+          ts: Date.now(),
+        });
+      }
+      return resolved.data;
+    })
+    .finally(() => {
+      inFlightPreviews.delete(flightKey);
+    });
+  inFlightPreviews.set(flightKey, pending);
 
   return pending;
 }
