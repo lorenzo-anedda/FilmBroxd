@@ -31,16 +31,34 @@ const previewCache = new Map<string, CacheEntry>();
 const inFlightPreviews = new Map<string, Promise<FilmPreviewResult>>();
 const PREVIEW_TTL_MS = 6 * 60 * 60 * 1000;
 
-function cleanWikiUrl(src?: string): string | null {
+function validateHttpsUrl(src?: string, allowedHosts?: string[]): string | null {
   if (!src) return null;
   try {
-    const u = new URL(src);
+    const u = new URL(src.trim());
+    if (u.protocol !== "https:") return null;
+    if (allowedHosts && allowedHosts.length > 0) {
+      const host = u.hostname.toLowerCase();
+      if (!allowedHosts.some((h) => host === h || host.endsWith(`.${h}`))) {
+        return null;
+      }
+    }
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function cleanWikiUrl(src?: string): string | null {
+  const safe = validateHttpsUrl(src, ["wikimedia.org", "wikipedia.org"]);
+  if (!safe) return null;
+  try {
+    const u = new URL(safe);
     u.searchParams.delete("utm_source");
     u.searchParams.delete("utm_campaign");
     u.searchParams.delete("utm_content");
     return u.toString();
   } catch {
-    return src;
+    return null;
   }
 }
 
@@ -318,7 +336,8 @@ async function fetchLetterboxdFilmPoster(
     };
 
     if (ld["@type"] && ld["@type"] !== "Movie") return null;
-    const imageUrl = typeof ld.image === "string" ? ld.image : "";
+    const rawImageUrl = typeof ld.image === "string" ? ld.image : "";
+    const imageUrl = validateHttpsUrl(rawImageUrl, ["ltrbxd.com"]);
     if (!imageUrl || !imageUrl.includes("/film-poster/")) return null;
 
     const titleTag = html.match(/<title>([^<]+)<\/title>/i)?.[1] || "";
@@ -507,7 +526,12 @@ async function fetchImdbPoster(
     }
   }
 
-  return best?.i?.imageUrl ? resizeImdbImage(best.i.imageUrl) : null;
+  return best?.i?.imageUrl
+    ? validateHttpsUrl(resizeImdbImage(best.i.imageUrl), [
+        "media-amazon.com",
+        "media-imdb.com",
+      ])
+    : null;
 }
 
 async function resolveFilmPreview(

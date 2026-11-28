@@ -40,30 +40,58 @@ function normKey(title: string, year: string): string {
   return `${title.trim().toLowerCase()}|${year.trim()}`;
 }
 
+const MAX_RSS_BYTES = 2 * 1024 * 1024;
+const MAX_RSS_ITEMS = 200;
+
+function sanitizeRssUrl(raw: string, allowedHosts: string[]): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const u = new URL(raw.trim());
+    if (u.protocol !== "https:") return undefined;
+    const host = u.hostname.toLowerCase();
+    if (!allowedHosts.some((h) => host === h || host.endsWith(`.${h}`))) {
+      return undefined;
+    }
+    return u.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 export function parseLetterboxdRss(xml: string): DiaryEntry[] {
   const items = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
   const entries: DiaryEntry[] = [];
   const seenIds = new Set<string>();
 
-  for (const item of items) {
-    const guid = extractTag(item, "guid");
-    const watchedDate = extractTag(item, "letterboxd:watchedDate");
-    const filmTitle = extractTag(item, "letterboxd:filmTitle");
+  for (const item of items.slice(0, MAX_RSS_ITEMS)) {
+    const guid = extractTag(item, "guid").slice(0, 200);
+    const watchedDateRaw = extractTag(item, "letterboxd:watchedDate");
+    const watchedDate = /^\d{4}-\d{2}-\d{2}$/.test(watchedDateRaw)
+      ? watchedDateRaw
+      : "";
+    const filmTitle = extractTag(item, "letterboxd:filmTitle").slice(0, 250);
     if (!watchedDate || !filmTitle) {
       // Skip non-diary feed entries (e.g. lists)
       continue;
     }
 
-    const filmYear = extractTag(item, "letterboxd:filmYear");
+    const rawYear = extractTag(item, "letterboxd:filmYear");
+    const filmYear = /^\d{4}$/.test(rawYear) ? rawYear : "";
     const ratingStr = extractTag(item, "letterboxd:memberRating");
     const rewatchStr = extractTag(item, "letterboxd:rewatch").toLowerCase();
-    const link = extractTag(item, "link");
+    const link = sanitizeRssUrl(extractTag(item, "link"), [
+      "letterboxd.com",
+      "boxd.it",
+    ]);
     const pubDate = extractTag(item, "pubDate");
     const descRaw =
       item.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] || "";
     const posterMatch = descRaw.match(
       /src=["'](https:\/\/a\.ltrbxd\.com\/resized\/film-poster\/[^"']+)["']/i
     );
+    const posterUrl = posterMatch?.[1]
+      ? sanitizeRssUrl(posterMatch[1], ["a.ltrbxd.com", "ltrbxd.com"])
+      : undefined;
 
     const k = normKey(filmTitle, filmYear);
     const id = guid || `${k}|${watchedDate}`;
@@ -83,7 +111,7 @@ export function parseLetterboxdRss(xml: string): DiaryEntry[] {
       r: Number.isFinite(parsedRating) ? parsedRating : null,
       ...(rw ? { rw: true } : {}),
       ...(link ? { letterboxdUrl: link } : {}),
-      ...(posterMatch?.[1] ? { posterUrl: posterMatch[1] } : {}),
+      ...(posterUrl ? { posterUrl } : {}),
     });
   }
 
@@ -132,7 +160,7 @@ letterboxdRouter.get("/letterboxd/diary", async (req, res) => {
       return;
     }
 
-    const xml = await response.text();
+    const xml = (await response.text()).slice(0, MAX_RSS_BYTES);
     if (!xml.includes("<rss") && !xml.includes("<channel")) {
       res.status(502).json({
         error: "Risposta non valida dal feed RSS di Letterboxd.",

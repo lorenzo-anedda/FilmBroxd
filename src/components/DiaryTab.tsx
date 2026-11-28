@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { ExternalLink, RefreshCw, RotateCcw, Search, Upload } from "lucide-react";
 import { fetchFilmPreview } from "../utils/aiClient";
+import { safeExternalUrl } from "../utils/filmHelpers";
 import { parseDiaryCSV, parseFilmImport } from "../utils/parsers";
 import { getCachedPreview } from "../utils/posterCache";
 import { PosterImage } from "./PosterImage";
@@ -422,6 +423,10 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
                       const stars = formatStars(entry.r);
                       const posterSrc =
                         entry.posterUrl || resolvedPosters[entry.k] || null;
+                      const safeEntryLink = safeExternalUrl(
+                        entry.letterboxdUrl,
+                        ["letterboxd.com", "boxd.it"]
+                      );
                       const m = meta[entry.k];
 
                       return (
@@ -490,9 +495,9 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
                             </div>
                           </div>
 
-                          {entry.letterboxdUrl && (
+                          {safeEntryLink && (
                             <a
-                              href={entry.letterboxdUrl}
+                              href={safeEntryLink}
                               target="_blank"
                               rel="noopener noreferrer"
                               aria-label={`Apri ${entry.t} su Letterboxd`}

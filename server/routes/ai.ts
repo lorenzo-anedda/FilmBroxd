@@ -15,6 +15,9 @@ aiRouter.get("/health", (_req, res) => {
   res.json({ ok: true, aiConfigured });
 });
 
+const MAX_PROMPT_CHARS = 120_000;
+const ALLOWED_JSON_MODES = new Set(["array", "object", "text"]);
+
 aiRouter.post("/ai/generate", async (req, res) => {
   const ai = getAIClient();
   if (!ai) {
@@ -25,13 +28,16 @@ aiRouter.post("/ai/generate", async (req, res) => {
     return;
   }
 
-  const { prompt, jsonMode, fast } = req.body as {
-    prompt?: string;
-    jsonMode?: "array" | "object" | "text";
-    fast?: boolean;
-  };
+  const body =
+    req.body && typeof req.body === "object" && !Array.isArray(req.body)
+      ? (req.body as {
+          prompt?: unknown;
+          jsonMode?: unknown;
+          fast?: unknown;
+        })
+      : null;
 
-  if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
+  if (!body || typeof body.prompt !== "string" || body.prompt.trim().length === 0) {
     res.status(400).json({
       code: "bad_request",
       error: "Prompt mancante.",
@@ -39,11 +45,24 @@ aiRouter.post("/ai/generate", async (req, res) => {
     return;
   }
 
+  if (body.prompt.length > MAX_PROMPT_CHARS) {
+    res.status(413).json({
+      code: "payload_too_large",
+      error: "Richiesta troppo lunga.",
+    });
+    return;
+  }
+
+  const jsonMode =
+    typeof body.jsonMode === "string" && ALLOWED_JSON_MODES.has(body.jsonMode)
+      ? (body.jsonMode as "array" | "object" | "text")
+      : "text";
+
   try {
     const text = await generateWithRetries(ai, {
-      prompt,
+      prompt: body.prompt,
       jsonMode,
-      fast: Boolean(fast),
+      fast: Boolean(body.fast),
     });
     res.json({ text });
   } catch (err: unknown) {
@@ -81,7 +100,7 @@ aiRouter.post("/ai/generate", async (req, res) => {
 
     res.status(500).json({
       code: "ai_error",
-      error: message.slice(0, 200),
+      error: "Errore temporaneo del servizio AI.",
     });
   }
 });

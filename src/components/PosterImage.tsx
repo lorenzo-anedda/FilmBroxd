@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Film } from "lucide-react";
+import { safeExternalUrl } from "../utils/filmHelpers";
 import { extractDominantColor, getDominantColor } from "../utils/posterCache";
 
 interface PosterImageProps {
@@ -88,15 +89,17 @@ export const PosterImage: React.FC<PosterImageProps> = ({
     return () => observer.disconnect();
   }, [cacheKey, rootMargin]);
 
+  const safePosterUrl = safeExternalUrl(posterUrl);
+
   // Sample real dominant color once visible and poster URL is available
   useEffect(() => {
-    if (!inView || !posterUrl) return;
-    extractDominantColor(posterUrl, cacheKey, (hex) => {
+    if (!inView || !safePosterUrl) return;
+    extractDominantColor(safePosterUrl, cacheKey, (hex) => {
       setDominantColor(hex);
     });
-  }, [inView, posterUrl, cacheKey]);
+  }, [inView, safePosterUrl, cacheKey]);
 
-  const effectiveUrl = inView && !imgError ? posterUrl : null;
+  const effectiveUrl = inView && !imgError ? safePosterUrl : null;
   const showPlaceholderOverlay = !effectiveUrl || !imgLoaded;
 
   return (

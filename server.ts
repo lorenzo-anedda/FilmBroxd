@@ -14,7 +14,33 @@ const PORT = Number(process.env.PORT) || 3000;
 
 async function startServer() {
   const app = express();
+  app.disable("x-powered-by");
+
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=()"
+    );
+    next();
+  });
+
   app.use(express.json({ limit: "2mb" }));
+  app.use(
+    (
+      err: unknown,
+      _req: express.Request,
+      res: express.Response,
+      next: express.NextFunction
+    ) => {
+      if (err instanceof SyntaxError && "body" in err) {
+        res.status(400).json({ code: "bad_json", error: "JSON non valido." });
+        return;
+      }
+      next(err);
+    }
+  );
 
   app.use("/api", aiRouter);
   app.use("/api", previewRouter);

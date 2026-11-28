@@ -230,35 +230,13 @@ export default function App() {
   }, [lib.hist]);
 
   const knownCheck = useMemo(() => {
-    const kT = new Set<string>();
-    const kK = new Set<string>();
-    const kN = new Set<string>();
-    const addK = (t: string, y?: string) => {
-      const n = normTitle(t);
-      if (!n) return;
-      kT.add(n);
-      if (y) kK.add(`${n}|${y}`);
-      else kN.add(n);
-    };
-    fullWatchlist
-      .concat(allSeen, Object.values(lib.marks))
-      .forEach((x) => {
-        addK(x.t, x.y);
-        const it = itTitle(x);
-        if (it) addK(it, x.y);
-      });
-    (lib.hist || [])
+    const recentHist = (lib.hist || [])
       .filter((h) => h.o !== "x" && Date.now() - h.ts < 60 * 864e5)
-      .forEach((h) => addK(h.t, h.y));
-
-    return (x: FilmItem) => {
-      const n = normTitle(x.t);
-      if (!n) return false;
-      if (kN.has(n)) return true;
-      if (!x.y) return kT.has(n);
-      const y = +x.y;
-      return [y - 1, y, y + 1].some((v) => kK.has(`${n}|${v}`));
-    };
+      .map((h) => ({ t: h.t, y: h.y }));
+    const matcher = buildFilmMatcher(
+      fullWatchlist.concat(allSeen, Object.values(lib.marks), recentHist)
+    );
+    return (x: FilmItem) => matcher(x);
   }, [fullWatchlist, allSeen, lib.marks, lib.hist]);
 
   const toggleSet = (
@@ -515,7 +493,7 @@ export default function App() {
           (x) =>
             (x.t.toLowerCase() === parsed.t.toLowerCase() ||
               itTitle(x).toLowerCase() === parsed.t.toLowerCase()) &&
-            (!parsed.y || Math.abs(+x.y - +parsed.y) <= 1)
+            (!parsed.y ? !x.y : x.y === parsed.y)
         );
 
       if (hit && listPicks.length < 5 && !usedKeys.has(filmKey(hit))) {
@@ -956,9 +934,13 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
   ): DiaryEntry[] => {
     const k = filmKey(film);
     const today = new Date().toISOString().slice(0, 10);
+    const isSameSeenFilm = buildFilmMatcher(allSeen);
+    const isSameFilmAsTarget = buildFilmMatcher([film]);
     const alreadySeenBefore =
-      allSeen.some((s) => filmKey(s) === k) ||
-      (prevDiary || []).some((d) => d.k === k && d.watchedDate !== today);
+      isSameSeenFilm(film) ||
+      (prevDiary || []).some(
+        (d) => isSameFilmAsTarget(d) && d.watchedDate !== today
+      );
     const entry: DiaryEntry = {
       id: `local-${k}|${today}`,
       k,
@@ -1531,7 +1513,17 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
             onImportBackup={(payload) => {
               const nextLib: LibraryState = {
                 ...lib,
-                ...payload.L,
+                meta: payload.L.meta ?? lib.meta,
+                marks: payload.L.marks ?? lib.marks,
+                profile: payload.L.profile ?? lib.profile,
+                partner: payload.L.partner ?? lib.partner,
+                hist: payload.L.hist ?? lib.hist,
+                add: payload.L.add ?? lib.add,
+                why: payload.L.why ?? lib.why,
+                diary: payload.L.diary ?? lib.diary,
+                letterboxdUser: payload.L.letterboxdUser ?? lib.letterboxdUser,
+                diarySyncedAt: payload.L.diarySyncedAt ?? lib.diarySyncedAt,
+                ts: Date.now(),
               };
               persistLibraryState(nextLib);
               setLib(nextLib);

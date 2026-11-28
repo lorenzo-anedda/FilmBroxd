@@ -1,5 +1,19 @@
-import { filmKey, itTitle, normTitle } from "./filmHelpers";
+import {
+  buildFilmIdentityMatcher,
+  canonicalFilmIdentity,
+  itTitle,
+  normTitle,
+  safeExternalUrl,
+  type FilmMatchTarget,
+} from "./filmHelpers";
 import type { DiaryEntry, FilmItem, SeenFilmItem } from "../types";
+
+const safeJsonParse = <T = unknown>(raw: string): T =>
+  JSON.parse(raw, (key, value) =>
+    key === "__proto__" || key === "constructor" || key === "prototype"
+      ? undefined
+      : value
+  ) as T;
 
 export function parseJsonSafely<T>(text: string, opener: "[" | "{"): T {
   const cleaned = String(text || "")
@@ -34,7 +48,7 @@ export function parseJsonSafely<T>(text: string, opener: "[" | "{"): T {
   };
 
   try {
-    const direct = JSON.parse(cleaned);
+    const direct = safeJsonParse<unknown>(cleaned);
     if (opener === "[") {
       if (Array.isArray(direct)) return direct as T;
       if (direct && typeof direct === "object") {
@@ -56,13 +70,13 @@ export function parseJsonSafely<T>(text: string, opener: "[" | "{"): T {
 
   const balanced = extractBalanced(cleaned, opener);
   if (balanced) {
-    return JSON.parse(balanced) as T;
+    return safeJsonParse<T>(balanced);
   }
 
   if (opener === "[") {
     const objStr = extractBalanced(cleaned, "{");
     if (objStr) {
-      const obj = JSON.parse(objStr);
+      const obj = safeJsonParse<unknown>(objStr);
       if (obj && typeof obj === "object") {
         const arrVal = Object.values(obj).find((v) => Array.isArray(v));
         if (arrVal) return arrVal as T;
@@ -79,7 +93,7 @@ export function parseJsonSafely<T>(text: string, opener: "[" | "{"): T {
         const nextObj = extractBalanced(cleaned.slice(nextObjStart), "{");
         if (!nextObj) break;
         try {
-          recovered.push(JSON.parse(nextObj));
+          recovered.push(safeJsonParse(nextObj));
         } catch {
           // skip malformed fragment
         }
@@ -187,6 +201,86 @@ export function isDiaryCSV(text: string): boolean {
   return header.includes("watched date");
 }
 
+function normalizeEventUri(rawUrl?: string | null): string | null {
+  const safe = safeExternalUrl(rawUrl, ["letterboxd.com", "boxd.it"]);
+  if (!safe) return null;
+  try {
+    const u = new URL(safe);
+    return `${u.hostname.toLowerCase()}${u.pathname.replace(/\/+$/, "").toLowerCase()}`;
+  } catch {
+    return null;
+  }
+}
+
+function uriHostFamily(rawUrl?: string | null): string | null {
+  const safe = safeExternalUrl(rawUrl, ["letterboxd.com", "boxd.it"]);
+  if (!safe) return null;
+  try {
+    const host = new URL(safe).hostname.toLowerCase();
+    if (host === "boxd.it" || host.endsWith(".boxd.it")) return "boxd";
+    if (host === "letterboxd.com" || host.endsWith(".letterboxd.com")) {
+      return "letterboxd";
+    }
+    return host;
+  } catch {
+    return null;
+  }
+}
+
+function isExternalFeedId(id: string): boolean {
+  return Boolean(id) && !id.startsWith("csv-") && !id.startsWith("local-");
+}
+
+function isRewatchUrlPath(rawUrl?: string | null): boolean {
+  const norm = normalizeEventUri(rawUrl);
+  if (!norm) return false;
+  return /\/film\/[^/]+\/\d+$/.test(norm);
+}
+
+function isSameDiaryFilmAndDate(a: DiaryEntry, b: DiaryEntry): boolean {
+  if (a.watchedDate !== b.watchedDate) return false;
+  if (a.k === b.k) return true;
+  const ya = (a.y || "").trim();
+  const yb = (b.y || "").trim();
+  if (ya !== yb) return false;
+  const na = normTitle(a.t);
+  const nb = normTitle(b.t);
+  return Boolean(na && nb && na === nb);
+}
+
+function diaryEventsConflict(a: DiaryEntry, b: DiaryEntry): boolean {
+  // Two distinct external RSS/feed IDs are separate viewing events
+  if (isExternalFeedId(a.id) && isExternalFeedId(b.id) && a.id !== b.id) {
+    return true;
+  }
+
+  // Two distinct Letterboxd URIs on the same host family are separate viewing events
+  const famA = uriHostFamily(a.letterboxdUrl);
+  const famB = uriHostFamily(b.letterboxdUrl);
+  if (famA && famB && famA === famB) {
+    const uriA = normalizeEventUri(a.letterboxdUrl);
+    const uriB = normalizeEventUri(b.letterboxdUrl);
+    if (uriA && uriB && uriA !== uriB) {
+      return true;
+    }
+  }
+
+  // Two CSV entries on the same day with distinct explicit event suffixes (e.g. URI or distinct rw/loggedDate)
+  if (
+    a.id.startsWith("csv-") &&
+    b.id.startsWith("csv-") &&
+    a.id !== b.id &&
+    (a.id.includes("|uri:") ||
+      b.id.includes("|uri:") ||
+      a.id.includes("|attr:") ||
+      b.id.includes("|attr:"))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function parseDiaryCSV(text: string): DiaryEntry[] {
   const rows = splitCSV(text.replace(/^\uFEFF/, ""));
   if (rows.length < 2) return [];
@@ -202,8 +296,21 @@ export function parseDiaryCSV(text: string): DiaryEntry[] {
   const iUri = ix(["letterboxd uri", "uri"]);
   if (iN < 0 || (iWatched < 0 && iLogged < 0)) return [];
 
-  const entries: DiaryEntry[] = [];
-  const seenCounts = new Map<string, number>();
+  interface RawParsedCsvRow {
+    k: string;
+    t: string;
+    y: string;
+    watchedDate: string;
+    loggedDate?: string;
+    r: number | null;
+    rw: boolean;
+    tags?: string[];
+    letterboxdUrl?: string;
+    normUri: string | null;
+  }
+
+  const parsedRows: RawParsedCsvRow[] = [];
+  const sameDayRowsMap = new Map<string, RawParsedCsvRow[]>();
 
   for (const r of rows.slice(1)) {
     const t = (r[iN] || "").trim();
@@ -231,23 +338,70 @@ export function parseDiaryCSV(text: string): DiaryEntry[] {
           .map((tag) => tag.trim())
           .filter(Boolean)
       : undefined;
-    const letterboxdUrl = iUri >= 0 ? (r[iUri] || "").trim() || undefined : undefined;
+    const rawUri = iUri >= 0 ? (r[iUri] || "").trim() : "";
+    const letterboxdUrl = rawUri
+      ? safeExternalUrl(rawUri, ["letterboxd.com", "boxd.it"]) || undefined
+      : undefined;
     const k = `${t.toLowerCase()}|${y}`;
-    const baseId = `${k}|${watchedDate}`;
-    const occ = (seenCounts.get(baseId) || 0) + 1;
-    seenCounts.set(baseId, occ);
-
-    entries.push({
-      id: occ > 1 ? `csv-${baseId}#${occ}` : `csv-${baseId}`,
+    const rowObj: RawParsedCsvRow = {
       k,
       t,
       y,
       watchedDate,
-      ...(loggedDate ? { loggedDate } : {}),
+      loggedDate,
       r: Number.isNaN(rt) ? null : rt,
-      ...(rw ? { rw: true } : {}),
-      ...(tags && tags.length ? { tags } : {}),
-      ...(letterboxdUrl ? { letterboxdUrl } : {}),
+      rw,
+      tags,
+      letterboxdUrl,
+      normUri: normalizeEventUri(letterboxdUrl),
+    };
+    parsedRows.push(rowObj);
+    const dayKey = `${k}|${watchedDate}`;
+    const bucket = sameDayRowsMap.get(dayKey) || [];
+    bucket.push(rowObj);
+    sameDayRowsMap.set(dayKey, bucket);
+  }
+
+  const entries: DiaryEntry[] = [];
+  const seenIds = new Set<string>();
+
+  for (const row of parsedRows) {
+    const baseId = `${row.k}|${row.watchedDate}`;
+    let id = `csv-${baseId}`;
+    if (row.normUri) {
+      id = `csv-${baseId}|uri:${row.normUri}`;
+    } else {
+      const siblings = sameDayRowsMap.get(baseId) || [];
+      if (siblings.length > 1) {
+        const hasDistinctAttr = siblings.some(
+          (s) =>
+            s.rw !== row.rw ||
+            (s.loggedDate || "") !== (row.loggedDate || "") ||
+            (s.tags || []).join(",") !== (row.tags || []).join(",")
+        );
+        if (hasDistinctAttr) {
+          id = `csv-${baseId}|attr:${row.rw ? "1" : "0"}|${row.loggedDate || ""}|${(
+            row.tags || []
+          ).join(",")}`;
+        }
+      }
+    }
+
+    // Never turn completely identical rows without URI/distinguishing info into duplicate viewings
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+
+    entries.push({
+      id,
+      k: row.k,
+      t: row.t,
+      y: row.y,
+      watchedDate: row.watchedDate,
+      ...(row.loggedDate ? { loggedDate: row.loggedDate } : {}),
+      r: row.r,
+      ...(row.rw ? { rw: true } : {}),
+      ...(row.tags && row.tags.length ? { tags: row.tags } : {}),
+      ...(row.letterboxdUrl ? { letterboxdUrl: row.letterboxdUrl } : {}),
     });
   }
 
@@ -262,41 +416,54 @@ export function mergeDiaryEntries(
   existing: DiaryEntry[],
   incoming: DiaryEntry[]
 ): DiaryEntry[] {
-  const map = new Map<string, DiaryEntry>();
-  const signatureOf = (e: DiaryEntry) => `${e.k}|${e.watchedDate}`;
-  const sigToKey = new Map<string, string>();
+  const result: DiaryEntry[] = existing.map((e) => ({ ...e }));
 
-  for (const item of existing) {
-    map.set(item.id, { ...item });
-    sigToKey.set(signatureOf(item), item.id);
-  }
+  const findMatchIndex = (item: DiaryEntry): number => {
+    const byId = result.findIndex((e) => e.id === item.id);
+    if (byId >= 0) return byId;
+
+    const itemUri = normalizeEventUri(item.letterboxdUrl);
+    if (itemUri) {
+      const byUri = result.findIndex(
+        (e) =>
+          isSameDiaryFilmAndDate(e, item) &&
+          normalizeEventUri(e.letterboxdUrl) === itemUri
+      );
+      if (byUri >= 0) return byUri;
+    }
+
+    return result.findIndex(
+      (e) => isSameDiaryFilmAndDate(e, item) && !diaryEventsConflict(e, item)
+    );
+  };
 
   for (const item of incoming) {
-    const existingKey = map.has(item.id)
-      ? item.id
-      : sigToKey.get(signatureOf(item));
-    if (!existingKey) {
-      map.set(item.id, { ...item });
-      sigToKey.set(signatureOf(item), item.id);
+    const idx = findMatchIndex(item);
+    if (idx < 0) {
+      result.push({ ...item });
     } else {
-      const prev = map.get(existingKey)!;
+      const prev = result[idx];
       const mergedTags = Array.from(
         new Set([...(prev.tags || []), ...(item.tags || [])])
       );
-      map.set(existingKey, {
+      result[idx] = {
         ...prev,
         ...item,
-        id: item.id.startsWith("letterboxd-") ? item.id : prev.id,
+        id: isExternalFeedId(item.id)
+          ? item.id
+          : isExternalFeedId(prev.id)
+            ? prev.id
+            : prev.id,
         r: item.r != null ? item.r : prev.r,
         rw: Boolean(prev.rw || item.rw) || undefined,
         tags: mergedTags.length ? mergedTags : undefined,
         letterboxdUrl: item.letterboxdUrl || prev.letterboxdUrl,
         posterUrl: item.posterUrl || prev.posterUrl,
-      });
+      };
     }
   }
 
-  return Array.from(map.values()).sort(
+  return result.sort(
     (a, b) =>
       b.watchedDate.localeCompare(a.watchedDate) ||
       (b.loggedDate || "").localeCompare(a.loggedDate || "")
@@ -304,14 +471,18 @@ export function mergeDiaryEntries(
 }
 
 export function diaryToSeenItems(entries: DiaryEntry[]): SeenFilmItem[] {
-  const byFilm = new Map<string, { item: SeenFilmItem; count: number; latestDate: string }>();
+  const byFilm = new Map<
+    string,
+    { item: SeenFilmItem; count: number; latestDate: string }
+  >();
   const ordered = [...entries].sort((a, b) =>
     a.watchedDate.localeCompare(b.watchedDate)
   );
   for (const entry of ordered) {
-    const prev = byFilm.get(entry.k);
+    const canon = canonicalFilmIdentity(entry);
+    const prev = byFilm.get(canon);
     if (!prev) {
-      byFilm.set(entry.k, {
+      byFilm.set(canon, {
         item: {
           t: entry.t,
           y: entry.y,
@@ -322,7 +493,7 @@ export function diaryToSeenItems(entries: DiaryEntry[]): SeenFilmItem[] {
         latestDate: entry.watchedDate,
       });
     } else {
-      byFilm.set(entry.k, {
+      byFilm.set(canon, {
         item: {
           t: prev.item.t,
           y: prev.item.y,
@@ -344,19 +515,41 @@ export function mergeSeenImports(
   incoming: SeenFilmItem[]
 ): SeenFilmItem[] {
   const map = new Map<string, SeenFilmItem>();
-  const keyOf = (x: { t: string; y?: string }) =>
-    `${x.t.trim().toLowerCase()}|${(x.y || "").trim()}`;
+  const altIndex = new Map<string, string>();
+
+  const registerKeys = (item: SeenFilmItem, canonKey: string) => {
+    const y = (item.y || "").trim();
+    const alt = itTitle(item);
+    if (alt) {
+      const nAlt = normTitle(alt);
+      if (nAlt) altIndex.set(`${nAlt}|${y}`, canonKey);
+    }
+    const nt = normTitle(item.t);
+    if (nt) altIndex.set(`${nt}|${y}`, canonKey);
+  };
 
   for (const item of existing) {
-    map.set(keyOf(item), { ...item });
+    const canon = canonicalFilmIdentity(item);
+    map.set(canon, { ...item });
+    registerKeys(item, canon);
   }
+
   for (const item of incoming) {
-    const k = keyOf(item);
-    const prev = map.get(k);
-    if (!prev) {
-      map.set(k, { ...item });
+    const y = (item.y || "").trim();
+    const directCanon = canonicalFilmIdentity(item);
+    const alt = itTitle(item);
+    const nAlt = alt ? normTitle(alt) : "";
+    const matchedKey =
+      (map.has(directCanon) ? directCanon : undefined) ||
+      altIndex.get(directCanon) ||
+      (nAlt ? altIndex.get(`${nAlt}|${y}`) : undefined);
+
+    if (!matchedKey) {
+      map.set(directCanon, { ...item });
+      registerKeys(item, directCanon);
     } else {
-      map.set(k, {
+      const prev = map.get(matchedKey)!;
+      map.set(matchedKey, {
         ...prev,
         r: item.r != null ? item.r : prev.r,
         rw: Boolean(prev.rw || item.rw) || undefined,
@@ -367,47 +560,10 @@ export function mergeSeenImports(
 }
 
 export function buildFilmMatcher(
-  films: ReadonlyArray<{ t: string; y?: string; it?: string }>
-): (candidate: { t: string; y?: string; it?: string }) => boolean {
-  const exactKeys = new Set<string>();
-  const normYearMap = new Map<string, Set<string>>();
-
-  const registerTitle = (title: string, year: string) => {
-    const nt = normTitle(title);
-    if (!nt) return;
-    let set = normYearMap.get(nt);
-    if (!set) {
-      set = new Set<string>();
-      normYearMap.set(nt, set);
-    }
-    set.add(year);
-  };
-
-  for (const f of films) {
-    const y = (f.y || "").trim();
-    exactKeys.add(filmKey({ t: f.t.trim(), y }));
-    registerTitle(f.t, y);
-    const it = itTitle(f as FilmItem);
-    if (it) {
-      exactKeys.add(filmKey({ t: it.trim(), y }));
-      registerTitle(it, y);
-    }
-  }
-
-  return (candidate) => {
-    const y = (candidate.y || "").trim();
-    if (exactKeys.has(filmKey({ t: candidate.t.trim(), y }))) return true;
-    const nt = normTitle(candidate.t);
-    const years = nt ? normYearMap.get(nt) : undefined;
-    if (!years) return false;
-    if (!y || years.has("") || years.has(y)) return true;
-    const numY = Number(y);
-    if (!Number.isFinite(numY)) return false;
-    return (
-      years.has(String(numY - 1)) ||
-      years.has(String(numY + 1))
-    );
-  };
+  films: ReadonlyArray<FilmMatchTarget>
+): (candidate: FilmMatchTarget) => boolean {
+  const matcher = buildFilmIdentityMatcher(films);
+  return (candidate) => matcher.match(candidate) === "exact";
 }
 
 export function filterNewDiaryEntries(
@@ -418,22 +574,44 @@ export function filterNewDiaryEntries(
   unseenEntries: DiaryEntry[];
   skippedAlreadyLoaded: number;
 } {
-  const isSeenMatch = buildFilmMatcher(existingSeen);
+  const seenMatcher = buildFilmIdentityMatcher(existingSeen);
+  const diaryFilmMatcher = buildFilmIdentityMatcher(existingDiary);
   const existingDiaryIds = new Set(existingDiary.map((d) => d.id));
-  const existingDiarySigs = new Set(
-    existingDiary.map((d) => `${d.k}|${d.watchedDate}`)
+  const existingDiaryUris = new Set(
+    existingDiary
+      .map((d) => normalizeEventUri(d.letterboxdUrl))
+      .filter((u): u is string => Boolean(u))
   );
 
   const unseenEntries: DiaryEntry[] = [];
   let skippedAlreadyLoaded = 0;
 
   for (const entry of rssEntries) {
-    const sig = `${entry.k}|${entry.watchedDate}`;
+    const entryUri = normalizeEventUri(entry.letterboxdUrl);
     const alreadyInDiary =
-      existingDiaryIds.has(entry.id) || existingDiarySigs.has(sig);
-    const alreadyInSeen = isSeenMatch(entry);
+      existingDiaryIds.has(entry.id) ||
+      Boolean(entryUri && existingDiaryUris.has(entryUri)) ||
+      existingDiary.some(
+        (d) => isSameDiaryFilmAndDate(d, entry) && !diaryEventsConflict(d, entry)
+      );
 
-    if (alreadyInDiary || alreadyInSeen) {
+    if (alreadyInDiary) {
+      skippedAlreadyLoaded += 1;
+      continue;
+    }
+
+    const isIntentionalRewatch =
+      Boolean(entry.rw) ||
+      isRewatchUrlPath(entry.letterboxdUrl) ||
+      diaryFilmMatcher.match(entry) === "exact";
+
+    if (isIntentionalRewatch) {
+      unseenEntries.push(entry);
+      continue;
+    }
+
+    const alreadyInSeen = seenMatcher.match(entry) === "exact";
+    if (alreadyInSeen) {
       skippedAlreadyLoaded += 1;
     } else {
       unseenEntries.push(entry);

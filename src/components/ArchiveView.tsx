@@ -6,6 +6,7 @@ import {
   mergeSeenImports,
   parseDiaryCSV,
   parseFilmImport,
+  sanitizeBackupPayload,
 } from "../utils/filmLogic";
 import type {
   DiaryEntry,
@@ -29,7 +30,7 @@ interface ArchiveViewProps {
   onClearToEmptyUser: () => void;
   onResetOriginal: () => void;
   onImportBackup: (payload: {
-    L: LibraryState;
+    L: Partial<LibraryState>;
     D?: Partial<WatchlistDataState>;
   }) => void;
 }
@@ -197,11 +198,19 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const parsed = JSON.parse(await file.text());
-      if (!parsed || !parsed.L) {
+      if (file.size > 15 * 1024 * 1024) {
+        throw new Error("file di backup troppo grande (max 15 MB)");
+      }
+      const parsed = JSON.parse(await file.text(), (key, value) =>
+        key === "__proto__" || key === "constructor" || key === "prototype"
+          ? undefined
+          : value
+      );
+      const safePayload = sanitizeBackupPayload(parsed);
+      if (!safePayload) {
         throw new Error("file di backup non valido");
       }
-      onImportBackup(parsed);
+      onImportBackup(safePayload);
       setNotice("Backup importato con successo.");
     } catch (err) {
       setNotice(
@@ -209,6 +218,8 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
           err instanceof Error ? err.message : "errore sconosciuto"
         }`
       );
+    } finally {
+      e.target.value = "";
     }
   };
 

@@ -3,11 +3,17 @@ import { getFilmPreview } from "../services/filmPreviewService.ts";
 
 export const previewRouter = Router();
 
+function cleanQueryParam(raw: unknown, maxLen: number): string {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, maxLen);
+}
+
 previewRouter.get("/film/preview", async (req, res) => {
-  const title = String(req.query.title || "").trim();
-  const itTitle = String(req.query.itTitle || "").trim();
-  const year = String(req.query.year || "").trim();
-  const director = String(req.query.director || "").trim();
+  const title = cleanQueryParam(req.query.title, 200);
+  const itTitle = cleanQueryParam(req.query.itTitle, 200);
+  const rawYear = cleanQueryParam(req.query.year, 10);
+  const year = /^\d{4}$/.test(rawYear) ? rawYear : "";
+  const director = cleanQueryParam(req.query.director, 150);
   const fast = req.query.fast === "1" || req.query.fast === "true";
 
   if (!title) {

@@ -1,3 +1,4 @@
+import { safeExternalUrl } from "./filmHelpers";
 import {
   getCachedPreview,
   setCachedPreview,
@@ -29,11 +30,12 @@ export async function syncLetterboxdDiary(username: string): Promise<{
 }
 
 export function preloadPosterImage(url?: string | null): void {
-  if (!url || typeof Image === "undefined") return;
+  const safeUrl = safeExternalUrl(url);
+  if (!safeUrl || typeof Image === "undefined") return;
   try {
     const img = new Image();
     img.referrerPolicy = "no-referrer";
-    img.src = url;
+    img.src = safeUrl;
   } catch {
     // ignore preload errors
   }
@@ -73,9 +75,9 @@ export async function fetchFilmPreview(
       wikiUrl?: string | null;
     };
     const result: FilmPreviewData = {
-      posterUrl: data.posterUrl || null,
+      posterUrl: safeExternalUrl(data.posterUrl),
       description: String(data.description || "").trim(),
-      wikiUrl: data.wikiUrl || null,
+      wikiUrl: safeExternalUrl(data.wikiUrl, ["wikipedia.org"]),
       loading: false,
     };
     preloadPosterImage(result.posterUrl);

@@ -11,8 +11,48 @@ import type {
 
 export const nz = (v?: string | null): boolean => Boolean(v && v !== "null");
 
+export function safeExternalUrl(
+  raw?: string | null,
+  allowedHosts?: string[]
+): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return null;
+    }
+    if (allowedHosts && allowedHosts.length > 0) {
+      const host = parsed.hostname.toLowerCase();
+      if (!allowedHosts.some((h) => host === h || host.endsWith(`.${h}`))) {
+        return null;
+      }
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function extractLetterboxdFilmSlug(rawUrl?: string | null): string | null {
+  const safe = safeExternalUrl(rawUrl, ["letterboxd.com"]);
+  if (!safe) return null;
+  try {
+    const parsed = new URL(safe);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const filmIdx = parts.indexOf("film");
+    if (filmIdx >= 0 && parts[filmIdx + 1]) {
+      return parts[filmIdx + 1].toLowerCase();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export const filmKey = (x: { t: string; y?: string }): string =>
-  `${x.t}|${x.y || ""}`.toLowerCase();
+  `${(x.t || "").trim()}|${(x.y || "").trim()}`.toLowerCase();
 
 export const normTitle = (s: string): string =>
   String(s || "")
@@ -25,6 +65,121 @@ export const normTitle = (s: string): string =>
     .replace(/^(the|a|an|il|lo|la|le|gli|i|l|un|uno|una|les|el|los|der|die|das) /, "");
 
 export const itTitle = (x: FilmItem): string => IT_TITLES[filmKey(x)] || x.it || "";
+
+export function canonicalFilmIdentity(x: {
+  t: string;
+  y?: string;
+  it?: string;
+}): string {
+  const nt = normTitle(x.t);
+  const y = (x.y || "").trim();
+  return nt ? `${nt}|${y}` : filmKey(x);
+}
+
+export type FilmMatchConfidence = "exact" | "possible" | "none";
+
+export interface FilmMatchTarget {
+  t: string;
+  y?: string;
+  it?: string;
+  letterboxdUrl?: string;
+}
+
+export function buildFilmIdentityMatcher(
+  films: ReadonlyArray<FilmMatchTarget>
+): {
+  match: (candidate: FilmMatchTarget) => FilmMatchConfidence;
+} {
+  const exactKeys = new Set<string>();
+  const normYearMap = new Map<string, Set<string>>();
+  const slugYearsMap = new Map<string, Set<string>>();
+
+  const registerTitle = (title: string, year: string) => {
+    const nt = normTitle(title);
+    if (!nt) return;
+    let set = normYearMap.get(nt);
+    if (!set) {
+      set = new Set<string>();
+      normYearMap.set(nt, set);
+    }
+    set.add(year);
+  };
+
+  for (const f of films) {
+    const y = (f.y || "").trim();
+    exactKeys.add(filmKey({ t: f.t, y }));
+    registerTitle(f.t, y);
+    const it = itTitle({ t: f.t, y, it: f.it });
+    if (it) {
+      exactKeys.add(filmKey({ t: it, y }));
+      registerTitle(it, y);
+    }
+    const slug = extractLetterboxdFilmSlug(f.letterboxdUrl);
+    if (slug) {
+      let sYears = slugYearsMap.get(slug);
+      if (!sYears) {
+        sYears = new Set<string>();
+        slugYearsMap.set(slug, sYears);
+      }
+      sYears.add(y);
+    }
+  }
+
+  const checkTitle = (title: string, year: string): FilmMatchConfidence => {
+    const k = filmKey({ t: title, y: year });
+    if (exactKeys.has(k)) {
+      return "exact";
+    }
+    const nt = normTitle(title);
+    const years = nt ? normYearMap.get(nt) : undefined;
+    if (!years || years.size === 0) return "none";
+
+    if (year) {
+      if (years.has(year)) return "exact";
+      const numY = Number(year);
+      if (Number.isFinite(numY)) {
+        if (years.has(String(numY - 1)) || years.has(String(numY + 1))) {
+          return "possible";
+        }
+      }
+      if (years.has("")) return "possible";
+      return "none";
+    }
+
+    // Candidate has no year: exact only if an existing entry also has no year,
+    // otherwise treat as possible (conservative)
+    return years.has("") ? "exact" : "possible";
+  };
+
+  return {
+    match(candidate: FilmMatchTarget): FilmMatchConfidence {
+      const y = (candidate.y || "").trim();
+      const candSlug = extractLetterboxdFilmSlug(candidate.letterboxdUrl);
+      if (candSlug) {
+        const knownSlugYears = slugYearsMap.get(candSlug);
+        if (knownSlugYears) {
+          if (!y || knownSlugYears.has("") || knownSlugYears.has(y)) {
+            return "exact";
+          }
+          // Same Letterboxd slug but conflicting known years: treat conservatively
+          return "possible";
+        }
+      }
+
+      const primary = checkTitle(candidate.t, y);
+      if (primary === "exact") return "exact";
+
+      const candIt = candidate.it?.trim();
+      if (candIt) {
+        const alt = checkTitle(candIt, y);
+        if (alt === "exact") return "exact";
+        if (primary === "possible" || alt === "possible") return "possible";
+      }
+
+      return primary;
+    },
+  };
+}
 
 export const displayTitle = (x: FilmItem): string => itTitle(x) || x.t;
 
@@ -73,15 +228,59 @@ export function getAllSeen(
   seen: SeenFilmItem[],
   marks: Record<string, LibraryState["marks"][string]>
 ): SeenFilmItem[] {
-  const markSeen: SeenFilmItem[] = Object.values(marks)
-    .filter((v) => v.s === "seen")
-    .map((v) => ({
-      t: v.t,
-      y: v.y,
-      r: v.r ?? null,
-      fb: v.fb,
-    }));
-  return seen.concat(markSeen);
+  const byKey = new Map<string, SeenFilmItem>();
+  const normToKey = new Map<string, string>();
+
+  const registerItem = (item: SeenFilmItem, preferUpdate: boolean) => {
+    const k = filmKey(item);
+    const y = (item.y || "").trim();
+    const nt = normTitle(item.t);
+    const nk = nt ? `${nt}|${y}` : "";
+    const alt = itTitle(item);
+    const nAlt = alt ? normTitle(alt) : "";
+    const altK = nAlt ? `${nAlt}|${y}` : "";
+
+    const existingKey = byKey.has(k)
+      ? k
+      : (nk ? normToKey.get(nk) : undefined) ||
+        (altK ? normToKey.get(altK) : undefined);
+
+    if (!existingKey) {
+      byKey.set(k, { ...item });
+      if (nk) normToKey.set(nk, k);
+      if (altK) normToKey.set(altK, k);
+      return;
+    }
+
+    const prev = byKey.get(existingKey)!;
+    if (preferUpdate) {
+      byKey.set(existingKey, {
+        ...prev,
+        r: item.r != null ? item.r : prev.r,
+        rw: prev.rw || item.rw,
+        fb: item.fb || prev.fb,
+      });
+    }
+  };
+
+  for (const s of seen) {
+    registerItem(s, true);
+  }
+
+  for (const v of Object.values(marks)) {
+    if (v.s !== "seen") continue;
+    registerItem(
+      {
+        t: v.t,
+        y: v.y,
+        r: v.r ?? null,
+        fb: v.fb,
+      },
+      true
+    );
+  }
+
+  return Array.from(byKey.values());
 }
 
 export interface FilterConfig {

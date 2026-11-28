@@ -1,6 +1,6 @@
 import React from "react";
 import { Award, Clapperboard, Film, Play, RotateCcw, Sparkles } from "lucide-react";
-import { displayTitle, nz } from "../utils/filmHelpers";
+import { displayTitle, nz, safeExternalUrl } from "../utils/filmHelpers";
 import type { ChampionDefeatStep } from "../utils/tournament";
 import type { FilmItem, FilmMeta, FilmPreviewData } from "../types";
 
@@ -94,9 +94,9 @@ export const CineSfidaVictory: React.FC<CineSfidaVictoryProps> = ({
             {/* Champion Poster with golden cinema frame */}
             <div className="mx-auto w-44 sm:w-52 md:w-full">
               <div className="relative overflow-hidden rounded-xl border border-amber-400/45 bg-slate-900 shadow-[0_20px_50px_rgba(0,0,0,0.65)] aspect-[2/3]">
-                {preview?.posterUrl ? (
+                {safeExternalUrl(preview?.posterUrl) ? (
                   <img
-                    src={preview.posterUrl}
+                    src={safeExternalUrl(preview?.posterUrl)!}
                     alt={`Locandina di ${title}`}
                     referrerPolicy="no-referrer"
                     className="h-full w-full object-cover"

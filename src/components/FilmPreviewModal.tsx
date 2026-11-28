@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { X, ExternalLink } from "lucide-react";
-import { canonicalLabel, displayTitle, filmKey } from "../utils/filmLogic";
+import { canonicalLabel, displayTitle, filmKey, safeExternalUrl } from "../utils/filmLogic";
 import { PosterImage } from "./PosterImage";
 import type { ActivePick, FilmMeta, FilmPreviewData } from "../types";
 
@@ -38,6 +38,7 @@ export const FilmPreviewModal: React.FC<FilmPreviewModalProps> = ({
   const letterboxdUrl = `https://letterboxd.com/search/${encodeURIComponent(
     canonicalLabel(pick.film)
   )}/`;
+  const safeWikiUrl = safeExternalUrl(preview?.wikiUrl, ["wikipedia.org"]);
 
   const metaParts = [
     pick.regista,
@@ -173,9 +174,9 @@ export const FilmPreviewModal: React.FC<FilmPreviewModalProps> = ({
                 Letterboxd
                 <ExternalLink className="h-3 w-3" />
               </a>
-              {preview?.wikiUrl && (
+              {safeWikiUrl && (
                 <a
-                  href={preview.wikiUrl}
+                  href={safeWikiUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-transparent px-3.5 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"

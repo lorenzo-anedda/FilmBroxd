@@ -1,3 +1,4 @@
+import { safeExternalUrl } from "./filmHelpers";
 import type { FilmPreviewData } from "../types";
 
 const POSTER_CACHE_KEY = "fb_preview_cache_v2";
@@ -33,12 +34,20 @@ function loadFromStorage(): void {
   try {
     const raw = localStorage.getItem(POSTER_CACHE_KEY);
     if (!raw) return;
-    const parsed = JSON.parse(raw) as Record<string, CachedFilmPreview>;
+    const parsed = JSON.parse(raw, (k, v) =>
+      k === "__proto__" || k === "constructor" || k === "prototype"
+        ? undefined
+        : v
+    ) as Record<string, CachedFilmPreview>;
     if (!parsed || typeof parsed !== "object") return;
     const now = Date.now();
     for (const [k, v] of Object.entries(parsed)) {
       if (v && (!v.ts || now - v.ts < CACHE_TTL_MS)) {
-        memoryCache.set(k, v);
+        memoryCache.set(k, {
+          ...v,
+          posterUrl: safeExternalUrl(v.posterUrl),
+          wikiUrl: safeExternalUrl(v.wikiUrl),
+        });
         if (v.dominantColor) {
           sampledColors.set(k, v.dominantColor);
         }
@@ -114,6 +123,8 @@ export function setCachedPreview(
   }
   memoryCache.set(cacheKey, {
     ...data,
+    posterUrl: safeExternalUrl(data.posterUrl),
+    wikiUrl: safeExternalUrl(data.wikiUrl),
     loading: false,
     dominantColor,
     isFull: isFull || Boolean(existing?.isFull),
@@ -145,7 +156,8 @@ export function extractDominantColor(
   cacheKey: string,
   onColorReady?: (hex: string) => void
 ): void {
-  if (!posterUrl || typeof window === "undefined") return;
+  const safeUrl = safeExternalUrl(posterUrl);
+  if (!safeUrl || typeof window === "undefined") return;
   loadFromStorage();
   const already = sampledColors.get(cacheKey);
   if (already) {
@@ -211,7 +223,7 @@ export function extractDominantColor(
     probe.onerror = () => {
       samplingInFlight.delete(cacheKey);
     };
-    probe.src = posterUrl;
+    probe.src = safeUrl;
   } catch {
     samplingInFlight.delete(cacheKey);
   }

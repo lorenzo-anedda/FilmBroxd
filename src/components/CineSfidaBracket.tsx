@@ -1,6 +1,6 @@
 import React from "react";
 import { Clapperboard } from "lucide-react";
-import { displayTitle, filmKey } from "../utils/filmHelpers";
+import { displayTitle, filmKey, safeExternalUrl } from "../utils/filmHelpers";
 import { getRoundShortNames, type BracketMatch } from "../utils/tournament";
 import type { FilmItem, FilmPreviewData } from "../types";
 
@@ -28,6 +28,7 @@ const BracketSlot: React.FC<{
   }
 
   const title = displayTitle(film);
+  const safePosterUrl = safeExternalUrl(preview?.posterUrl);
 
   return (
     <div
@@ -42,9 +43,9 @@ const BracketSlot: React.FC<{
       }`}
     >
       <div className="h-6 w-4 shrink-0 overflow-hidden rounded-[2px] bg-slate-200 dark:bg-slate-800">
-        {preview?.posterUrl ? (
+        {safePosterUrl ? (
           <img
-            src={preview.posterUrl}
+            src={safePosterUrl}
             alt=""
             referrerPolicy="no-referrer"
             className="h-full w-full object-cover"

@@ -1,4 +1,4 @@
-import { displayTitle, filmKey, nz } from "./filmHelpers";
+import { canonicalFilmIdentity, displayTitle, filmKey, nz } from "./filmHelpers";
 import type { DiaryEntry, FilmMeta, SeenFilmItem } from "../types";
 
 export interface RatingBucket {
@@ -229,9 +229,10 @@ function computeDiaryStats(
       }
     }
 
-    const prev = filmAgg.get(entry.k);
+    const canonKey = canonicalFilmIdentity(entry);
+    const prev = filmAgg.get(canonKey);
     if (!prev) {
-      filmAgg.set(entry.k, {
+      filmAgg.set(canonKey, {
         k: entry.k,
         t: entry.t,
         y: entry.y,
@@ -241,7 +242,7 @@ function computeDiaryStats(
         lastWatchedDate: entry.watchedDate,
       });
     } else {
-      filmAgg.set(entry.k, {
+      filmAgg.set(canonKey, {
         ...prev,
         count: prev.count + 1,
         rwFlagged: prev.rwFlagged || Boolean(entry.rw),
@@ -255,7 +256,7 @@ function computeDiaryStats(
   }
 
   // Fill any missing rating from seen list
-  const seenMap = new Map(seen.map((s) => [filmKey(s), s]));
+  const seenMap = new Map(seen.map((s) => [canonicalFilmIdentity(s), s]));
   const topRewatches: RewatchFilmStat[] = Array.from(filmAgg.values())
     .filter((f) => f.count >= 2 || f.rwFlagged)
     .map((f) => ({
@@ -263,7 +264,7 @@ function computeDiaryStats(
       t: f.t,
       y: f.y,
       count: f.count,
-      rating: f.rating ?? seenMap.get(f.k)?.r ?? null,
+      rating: f.rating ?? seenMap.get(canonicalFilmIdentity(f))?.r ?? null,
       lastWatchedDate: f.lastWatchedDate,
     }))
     .sort(
