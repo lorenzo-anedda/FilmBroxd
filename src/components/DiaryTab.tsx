@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { ExternalLink, RefreshCw, RotateCcw, Search, Upload } from "lucide-react";
+import { AlertCircle, ExternalLink, RefreshCw, RotateCcw, Search, Upload } from "lucide-react";
 import { fetchFilmPreview } from "../utils/aiClient";
 import { safeExternalUrl } from "../utils/filmHelpers";
 import { parseDiaryCSV, parseFilmImport } from "../utils/parsers";
@@ -226,14 +226,14 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
       {/* Quick RSS sync + full diary.csv import bar */}
       <form
         onSubmit={handleRssSubmit}
-        className="space-y-3 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-3.5 dark:border-slate-800 dark:bg-[#0B0E14]"
+        className="space-y-3 rounded-xl border border-cg-border bg-cg-bg p-3.5"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <div className="text-xs font-semibold text-cg-text">
               Sincronizza solo i film nuovi da Letterboxd
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] text-cg-muted">
               Mantiene intatti lista precaricata e attori già analizzati: legge gli ultimi ~50 log pubblici e aggiunge solo i titoli che non hai ancora caricato (analizzandone automaticamente regista e attori)
               {diarySyncedAt
                 ? ` · ultimo sync ${new Date(diarySyncedAt).toLocaleDateString(
@@ -256,7 +256,7 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
             <button
               type="button"
               onClick={() => csvInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#131722] dark:text-slate-200 dark:hover:bg-slate-800"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cg-border bg-cg-surface px-3 py-1.5 text-xs font-medium text-cg-secondary transition-colors hover:bg-cg-elevated whitespace-nowrap shrink-0"
             >
               <Upload className="h-3.5 w-3.5" />
               Carica diary.csv
@@ -268,12 +268,12 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
               onChange={(e) => setUserInput(e.target.value)}
               placeholder="username Letterboxd"
               aria-label="Username Letterboxd"
-              className="w-40 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#131722] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#3B82F6]"
+              className="w-40 rounded-lg border border-cg-border bg-cg-surface px-3 py-1.5 text-xs text-cg-text placeholder:text-cg-muted focus:border-cg-accent focus:outline-none"
             />
             <button
               type="submit"
               disabled={syncBusy || !userInput.trim()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-cg-accent px-3.5 py-1.5 text-xs font-semibold text-cg-accent-fg transition-colors hover:bg-cg-accent-hover disabled:opacity-50 whitespace-nowrap shrink-0"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${syncBusy ? "animate-spin" : ""}`} />
               {syncBusy ? "Sincronizzo…" : "Sincronizza RSS"}
@@ -281,32 +281,34 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
           </div>
         </div>
 
-        <label className="inline-flex cursor-pointer items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-[11px] font-medium text-cg-secondary">
           <input
             type="checkbox"
             checked={onlyNewFilms}
             onChange={(e) => setOnlyNewFilms(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB] dark:border-slate-600 dark:bg-[#131722]"
+            className="h-3.5 w-3.5 rounded border-cg-border-strong accent-[var(--cg-accent)]"
           />
           Importa solo i film nuovi non ancora presenti nella tua lista
         </label>
       </form>
 
-      {(syncMsg || syncErr) && (
-        <p
-          className={`text-xs font-medium ${
-            syncErr
-              ? "text-rose-600 dark:text-rose-400"
-              : "text-slate-700 dark:text-slate-300"
-          }`}
+      {syncErr && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-cg-error-border bg-cg-error-bg px-3 py-2 text-xs font-medium text-cg-error"
         >
-          {syncErr || syncMsg}
-        </p>
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{syncErr}</span>
+        </div>
+      )}
+
+      {!syncErr && syncMsg && (
+        <p className="text-xs font-medium text-cg-secondary">{syncMsg}</p>
       )}
 
       {diary.length === 0 ? (
-        <div className="py-10 text-center space-y-3">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+        <div className="space-y-3 py-10 text-center">
+          <p className="text-sm text-cg-muted">
             Il tuo Diario è ancora vuoto. Sincronizza il tuo username Letterboxd qui
             sopra oppure carica <span className="font-mono">diary.csv</span> da Archivio.
           </p>
@@ -314,7 +316,7 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
             <button
               type="button"
               onClick={onOpenArchive}
-              className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-4 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+              className="rounded-lg border border-cg-border bg-cg-bg px-4 py-2 text-xs font-medium text-cg-secondary transition-colors hover:bg-cg-elevated whitespace-nowrap shrink-0"
             >
               Vai ad Archivio
             </button>
@@ -326,7 +328,7 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-cg-muted" />
                 <input
                   type="text"
                   value={query}
@@ -336,7 +338,7 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
                   }}
                   placeholder="Cerca titolo o tag…"
                   aria-label="Cerca nel diario"
-                  className="w-44 rounded-lg border border-slate-200 bg-[#F5F7FA] py-1.5 pl-8 pr-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-100 dark:placeholder:text-slate-500"
+                  className="w-44 rounded-lg border border-cg-border bg-cg-bg py-1.5 pl-8 pr-2.5 text-xs text-cg-text placeholder:text-cg-muted focus:border-cg-accent focus:outline-none"
                 />
               </div>
 
@@ -348,7 +350,7 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
                     setYearFilter(e.target.value);
                     setVisibleCap(30);
                   }}
-                  className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-2.5 py-1.5 font-mono text-xs text-slate-700 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-200"
+                  className="rounded-lg border border-cg-border bg-cg-bg px-2.5 py-1.5 font-mono text-xs text-cg-secondary focus:border-cg-accent focus:outline-none"
                 >
                   <option value="all">Tutti gli anni ({diary.length})</option>
                   {years.map((y) => (
@@ -367,7 +369,7 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
                     setTagFilter(e.target.value);
                     setVisibleCap(30);
                   }}
-                  className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-2.5 py-1.5 text-xs text-slate-700 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-200"
+                  className="rounded-lg border border-cg-border bg-cg-bg px-2.5 py-1.5 text-xs text-cg-secondary focus:border-cg-accent focus:outline-none"
                 >
                   <option value="all">Tutti i tag</option>
                   {tags.map((t) => (
@@ -380,14 +382,15 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
 
               <button
                 type="button"
+                aria-pressed={rewatchOnly}
                 onClick={() => {
                   setRewatchOnly((v) => !v);
                   setVisibleCap(30);
                 }}
                 className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                   rewatchOnly
-                    ? "border-[#2563EB] bg-[#2563EB] text-white dark:border-[#3B82F6] dark:bg-[#3B82F6]"
-                    : "border-slate-200 bg-[#F5F7FA] text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                    ? "border-cg-accent bg-cg-accent text-cg-accent-fg"
+                    : "border-cg-border bg-cg-bg text-cg-secondary hover:bg-cg-elevated"
                 }`}
               >
                 <RotateCcw className="h-3 w-3" />
@@ -395,29 +398,29 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
               </button>
             </div>
 
-            <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+            <span className="font-mono text-xs tabular-nums text-cg-muted">
               {filtered.length} {filtered.length === 1 ? "visione" : "visioni"}
             </span>
           </div>
 
           {!groupedByMonth.length ? (
-            <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+            <p className="py-8 text-center text-sm text-cg-muted">
               Nessuna visione trovata con questi filtri.
             </p>
           ) : (
             <div className="space-y-7 pt-1">
               {groupedByMonth.map((group) => (
                 <div key={group.ym}>
-                  <div className="mb-2 flex items-baseline justify-between border-b border-slate-200/80 pb-2 dark:border-slate-800">
-                    <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  <div className="mb-2 flex items-baseline justify-between border-b border-cg-border pb-2">
+                    <h3 className="font-display text-lg font-semibold text-cg-text">
                       {group.label}
                     </h3>
-                    <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                    <span className="font-mono text-xs tabular-nums text-cg-muted">
                       {group.items.length}
                     </span>
                   </div>
 
-                  <div className="divide-y divide-slate-200/70 dark:divide-slate-800">
+                  <div className="divide-y divide-cg-border">
                     {group.items.map((entry) => {
                       const day = entry.watchedDate.slice(8, 10);
                       const stars = formatStars(entry.r);
@@ -434,11 +437,11 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
                           key={entry.id}
                           className="flex items-center gap-3.5 py-3 first:pt-1 last:pb-0"
                         >
-                          <div className="w-8 shrink-0 text-center font-mono text-base font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+                          <div className="w-8 shrink-0 text-center font-mono text-base font-semibold tabular-nums text-cg-muted">
                             {day}
                           </div>
 
-                          <div className="h-14 w-9.5 shrink-0 overflow-hidden rounded-md border border-slate-200/80 bg-[#F5F7FA] dark:border-slate-800 dark:bg-[#0B0E14]">
+                          <div className="h-14 w-9.5 shrink-0 overflow-hidden rounded-md border border-cg-border bg-cg-elevated">
                             <PosterImage
                               cacheKey={entry.k}
                               title={entry.t}
@@ -452,26 +455,26 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
 
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-baseline gap-x-2">
-                              <span className="truncate font-display text-sm font-semibold text-slate-900 sm:text-base dark:text-slate-100">
+                              <span className="truncate font-display text-sm font-semibold text-cg-text sm:text-base">
                                 {entry.t}
                               </span>
                               {entry.y && (
-                                <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                                <span className="font-mono text-xs tabular-nums text-cg-muted">
                                   {entry.y}
                                 </span>
                               )}
                             </div>
 
-                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-cg-muted">
                               {stars && (
-                                <span className="font-mono font-medium text-[#2563EB] dark:text-[#60A5FA]">
+                                <span className="font-mono font-medium text-cg-rating">
                                   {stars}
                                 </span>
                               )}
                               {entry.rw && (
                                 <>
                                   {stars && <span aria-hidden="true">·</span>}
-                                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                                  <span className="font-medium text-cg-accent-text">
                                     Rewatch
                                   </span>
                                 </>
@@ -501,7 +504,7 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
                               target="_blank"
                               rel="noopener noreferrer"
                               aria-label={`Apri ${entry.t} su Letterboxd`}
-                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-[#F5F7FA] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cg-border bg-cg-bg text-cg-muted transition-colors hover:bg-cg-elevated hover:text-cg-text"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                             </a>
@@ -516,11 +519,11 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
           )}
 
           {filtered.length > visibleCap && (
-            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-200/80 pt-4 dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-center gap-2 border-t border-cg-border pt-4">
               <button
                 type="button"
                 onClick={() => setVisibleCap((c) => c + 50)}
-                className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-4 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                className="rounded-lg border border-cg-border bg-cg-bg px-4 py-2 text-xs font-medium text-cg-secondary transition-colors hover:bg-cg-elevated whitespace-nowrap shrink-0"
               >
                 Mostra altri ({Math.min(50, filtered.length - visibleCap)} di{" "}
                 {filtered.length - visibleCap})
@@ -528,7 +531,7 @@ export const DiaryTab: React.FC<DiaryTabProps> = ({
               <button
                 type="button"
                 onClick={() => setVisibleCap(filtered.length)}
-                className="rounded-lg border border-slate-200 bg-transparent px-4 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                className="rounded-lg border border-cg-border bg-transparent px-4 py-2 text-xs font-medium text-cg-muted transition-colors hover:bg-cg-elevated hover:text-cg-text whitespace-nowrap shrink-0"
               >
                 Mostra tutti ({filtered.length})
               </button>

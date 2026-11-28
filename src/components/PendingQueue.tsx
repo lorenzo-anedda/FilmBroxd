@@ -20,26 +20,26 @@ export const PendingQueue: React.FC<PendingQueueProps> = ({
   return (
     <section
       aria-label="Film scelti nelle sere scorse"
-      className="mb-8 rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 dark:border-slate-800 dark:bg-[#131722]"
+      className="mb-8 rounded-2xl border border-cg-border bg-cg-surface p-5 sm:p-6"
     >
-      <div className="mb-4 flex items-baseline justify-between gap-4 border-b border-slate-200/80 pb-3 dark:border-slate-800">
-        <h2 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+      <div className="mb-4 flex items-baseline justify-between gap-4 border-b border-cg-border pb-3">
+        <h2 className="font-display text-lg font-semibold text-cg-text">
           Com’è andata?
         </h2>
-        <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+        <span className="font-mono text-xs tabular-nums text-cg-muted">
           {items.length} in attesa di riscontro
         </span>
       </div>
 
-      <div className="divide-y divide-slate-200/70 dark:divide-slate-800">
+      <div className="divide-y divide-cg-border">
         {items.map((h) => (
           <div key={h.k} className="py-3.5 first:pt-0 last:pb-0">
             <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2">
-              <span className="font-display text-base font-semibold text-slate-900 dark:text-slate-100">
+              <span className="font-display text-base font-semibold text-cg-text">
                 {displayTitle(h)}
               </span>
               {h.y && (
-                <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                <span className="font-mono text-xs tabular-nums text-cg-muted">
                   {h.y}
                 </span>
               )}
@@ -52,8 +52,8 @@ export const PendingQueue: React.FC<PendingQueueProps> = ({
                   onClick={() => onOutcome(h, k)}
                   className={
                     k === "love"
-                      ? "rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
-                      : "rounded-lg border border-slate-200 bg-[#F5F7FA] px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                      ? "rounded-lg bg-cg-accent px-3 py-1.5 text-xs font-semibold text-cg-accent-fg transition-colors hover:bg-cg-accent-hover whitespace-nowrap shrink-0"
+                      : "rounded-lg border border-cg-border bg-cg-elevated px-3 py-1.5 text-xs font-medium text-cg-secondary transition-colors hover:border-cg-border-strong hover:text-cg-text whitespace-nowrap shrink-0"
                   }
                 >
                   {OUTCOMES[k].label}
@@ -62,14 +62,14 @@ export const PendingQueue: React.FC<PendingQueueProps> = ({
               <button
                 type="button"
                 onClick={() => onDefer(h)}
-                className="rounded-lg border border-slate-200 bg-transparent px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                className="rounded-lg border border-cg-border bg-transparent px-3 py-1.5 text-xs font-medium text-cg-muted transition-colors hover:bg-cg-elevated hover:text-cg-text whitespace-nowrap shrink-0"
               >
                 Non l’ho ancora visto
               </button>
               <button
                 type="button"
                 onClick={() => onDismiss(h)}
-                className="rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 whitespace-nowrap shrink-0 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-medium text-cg-muted transition-colors hover:bg-cg-elevated hover:text-cg-text whitespace-nowrap shrink-0"
               >
                 Non più
               </button>

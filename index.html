@@ -3,17 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FilmBroxd — Consigli dalla tua watchlist</title>
-    <meta name="description" content="Consigli cinematografici dalla tua watchlist, in base ai tuoi gusti e al mood della serata." />
-    <meta property="og:title" content="FilmBroxd — Consigli dalla tua watchlist" />
-    <meta property="og:description" content="Consigli cinematografici dalla tua watchlist, in base ai tuoi gusti e al mood della serata." />
+    <title>Cineglyph — Less scrolling. More cinema.</title>
+    <meta
+      name="description"
+      content="Less scrolling. More cinema. Scegli cosa guardare dalla tua watchlist Letterboxd in base a mood, filtri, diario delle visioni e gusti personali."
+    />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Cineglyph" />
+    <meta property="og:title" content="Cineglyph — Less scrolling. More cinema." />
+    <meta
+      property="og:description"
+      content="Less scrolling. More cinema. Scegli cosa guardare dalla tua watchlist Letterboxd in base a mood, filtri, diario delle visioni e gusti personali."
+    />
+    <meta property="og:image" content="/cineglyph-logo.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cineglyph — Less scrolling. More cinema." />
+    <meta
+      name="twitter:description"
+      content="Less scrolling. More cinema. Scegli cosa guardare dalla tua watchlist Letterboxd in base a mood, filtri, diario delle visioni e gusti personali."
+    />
+    <meta name="theme-color" content="#12110F" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F7F1E8" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/svg+xml" href="/cineglyph-logo-light.svg" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/svg+xml" href="/cineglyph-logo-dark.svg" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem("fb_theme") !== "light") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (_) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Cineglyph",
+        "applicationCategory": "EntertainmentApplication",
+        "operatingSystem": "All",
+        "description": "Less scrolling. More cinema. Consulente cinematografico personale dalla tua watchlist Letterboxd in base a mood, filtri e gusti.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "EUR"
+        }
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
-  <body class="bg-[#F5F7FA] text-slate-900 antialiased selection:bg-blue-600/15 selection:text-blue-700 dark:bg-[#0B0E14] dark:text-slate-100 dark:selection:bg-blue-500/25 dark:selection:text-blue-300">
+  <body class="bg-cg-bg text-cg-text antialiased selection:bg-[var(--cg-selection-bg)] selection:text-[var(--cg-selection-text)]">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

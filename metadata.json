@@ -1,6 +1,6 @@
 {
-  "name": "FilmBroxd",
-  "description": "Consigli cinematografici dalla tua watchlist, in base ai tuoi gusti e al mood della serata.",
+  "name": "Cineglyph",
+  "description": "Less scrolling. More cinema. Consigli cinematografici dalla tua watchlist, in base ai tuoi gusti e al mood della serata.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -20,8 +20,8 @@ const BracketSlot: React.FC<{
 }> = ({ film, isWinner, isEliminated, isRecentlyAdvanced, preview }) => {
   if (!film) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-dashed border-slate-200/80 bg-slate-50/60 px-2 py-1.5 text-[11px] text-slate-400 dark:border-slate-800 dark:bg-[#0B0E14]/50 dark:text-slate-600">
-        <div className="h-6 w-4 shrink-0 rounded-[2px] bg-slate-200/70 dark:bg-slate-800/70" />
+      <div className="flex items-center gap-2 rounded-md border border-dashed border-cg-border bg-cg-bg/70 px-2 py-1.5 text-[11px] text-cg-muted">
+        <div className="h-6 w-4 shrink-0 rounded-[2px] bg-cg-elevated" />
         <span className="truncate">In attesa…</span>
       </div>
     );
@@ -36,13 +36,13 @@ const BracketSlot: React.FC<{
         isRecentlyAdvanced ? "bracket-pop" : ""
       } ${
         isWinner
-          ? "bg-[#2563EB]/10 text-[#1D4ED8] dark:bg-[#3B82F6]/15 dark:text-[#60A5FA]"
+          ? "bg-cg-accent-soft text-cg-accent-text"
           : isEliminated
-          ? "opacity-40 text-slate-500 dark:text-slate-500"
-          : "text-slate-800 dark:text-slate-200"
+          ? "opacity-40 text-cg-muted"
+          : "text-cg-text"
       }`}
     >
-      <div className="h-6 w-4 shrink-0 overflow-hidden rounded-[2px] bg-slate-200 dark:bg-slate-800">
+      <div className="h-6 w-4 shrink-0 overflow-hidden rounded-[2px] bg-cg-elevated">
         {safePosterUrl ? (
           <img
             src={safePosterUrl}
@@ -52,7 +52,7 @@ const BracketSlot: React.FC<{
             loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-400 dark:text-slate-600">
+          <div className="flex h-full w-full items-center justify-center text-cg-muted">
             <Clapperboard className="h-2.5 w-2.5" />
           </div>
         )}
@@ -84,13 +84,13 @@ export const CineSfidaBracket: React.FC<CineSfidaBracketProps> = ({
   const isQuarters = rounds.length === 3;
 
   return (
-    <section className="rounded-2xl border border-slate-200/90 bg-white p-5 dark:border-slate-800 dark:bg-[#131722]">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+    <section className="rounded-2xl border border-cg-border bg-cg-surface p-5">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-cg-border pb-3">
         <div>
-          <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+          <h3 className="font-display text-lg font-semibold text-cg-text">
             Tabellone del torneo
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-cg-muted">
             {isQuarters
               ? "Segui l’avanzamento dai Quarti fino alla Finale."
               : "Segui l’avanzamento dagli Ottavi fino alla Finale."}
@@ -108,7 +108,7 @@ export const CineSfidaBracket: React.FC<CineSfidaBracketProps> = ({
         >
           {rounds.map((matches, rIdx) => (
             <div key={shortNames[rIdx]} className="flex flex-col">
-              <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-cg-muted">
                 <span>{shortNames[rIdx]}</span>
                 <span className="font-mono text-[11px] tabular-nums">
                   {matches.filter((m) => m.winner).length}/{matches.length}
@@ -129,8 +129,8 @@ export const CineSfidaBracket: React.FC<CineSfidaBracketProps> = ({
                       key={match.id}
                       className={`rounded-xl border p-1.5 transition-colors ${
                         isCurrent
-                          ? "border-[#2563EB] bg-[#2563EB]/[0.04] dark:border-[#3B82F6] dark:bg-[#3B82F6]/[0.07]"
-                          : "border-slate-200/80 bg-[#F5F7FA]/70 dark:border-slate-800 dark:bg-[#0B0E14]/70"
+                          ? "border-cg-accent bg-cg-accent-soft"
+                          : "border-cg-border bg-cg-bg/70"
                       }`}
                     >
                       <div className="space-y-1">
@@ -146,7 +146,7 @@ export const CineSfidaBracket: React.FC<CineSfidaBracketProps> = ({
                           )}
                           preview={keyA ? previews[keyA] : undefined}
                         />
-                        <div className="h-px bg-slate-200/70 dark:bg-slate-800/80" />
+                        <div className="h-px bg-cg-border" />
                         <BracketSlot
                           film={match.b}
                           isWinner={Boolean(winKey && keyB === winKey)}

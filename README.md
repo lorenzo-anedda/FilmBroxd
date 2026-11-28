@@ -1,4 +1,6 @@
-# FilmBroxd
+# Cineglyph
+
+> Less scrolling. More cinema.
 
 Consulente cinematografico personale per scegliere cosa guardare dalla propria watchlist Letterboxd in base a mood, filtri, storico delle visioni e gusti personali, con locandine recuperate da Letterboxd/IMDb, sinossi in italiano (Wikipedia/AI) e supporto Gemini (con punteggio locale come fallback).
 

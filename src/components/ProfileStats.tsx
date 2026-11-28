@@ -45,37 +45,39 @@ const PeopleCard: React.FC<{
   const items = sortMode === "love" ? itemsByLove : itemsByCount;
 
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white p-5 dark:border-slate-800 dark:bg-[#131722]">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+    <div className="rounded-2xl border border-cg-border bg-cg-surface p-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2 border-b border-cg-border pb-3">
         <div>
-          <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+          <h3 className="font-display text-lg font-semibold text-cg-text">
             {title}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+          <p className="text-xs text-cg-muted">{subtitle}</p>
         </div>
         <div
-          className="inline-flex rounded-lg border border-slate-200 bg-[#F5F7FA] p-0.5 text-[11px] font-medium dark:border-slate-700 dark:bg-[#0B0E14]"
+          className="inline-flex rounded-lg border border-cg-border bg-cg-bg p-0.5 text-[11px] font-medium"
           role="group"
           aria-label={`Ordinamento ${title}`}
         >
           <button
             type="button"
+            aria-pressed={sortMode === "love"}
             onClick={() => setSortMode("love")}
             className={`rounded-md px-2.5 py-1 transition-colors ${
               sortMode === "love"
-                ? "bg-white text-[#2563EB] shadow-xs dark:bg-[#1A202E] dark:text-[#60A5FA]"
-                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                ? "bg-cg-surface text-cg-accent-text shadow-xs"
+                : "text-cg-muted hover:text-cg-text"
             }`}
           >
             Più amati
           </button>
           <button
             type="button"
+            aria-pressed={sortMode === "count"}
             onClick={() => setSortMode("count")}
             className={`rounded-md px-2.5 py-1 transition-colors ${
               sortMode === "count"
-                ? "bg-white text-[#2563EB] shadow-xs dark:bg-[#1A202E] dark:text-[#60A5FA]"
-                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                ? "bg-cg-surface text-cg-accent-text shadow-xs"
+                : "text-cg-muted hover:text-cg-text"
             }`}
           >
             Più visti
@@ -84,7 +86,7 @@ const PeopleCard: React.FC<{
       </div>
 
       {items.length === 0 ? (
-        <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+        <p className="py-6 text-center text-sm text-cg-muted">
           {emptyText}
         </p>
       ) : (
@@ -95,6 +97,7 @@ const PeopleCard: React.FC<{
               <li key={person.name} className="space-y-1.5">
                 <button
                   type="button"
+                  aria-expanded={isExpanded}
                   onClick={() =>
                     setExpandedPerson(isExpanded ? null : person.name)
                   }
@@ -103,26 +106,26 @@ const PeopleCard: React.FC<{
                   <div className="flex items-baseline justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+                        <span className="font-mono text-[11px] tabular-nums text-cg-muted">
                           {String(idx + 1).padStart(2, "0")}
                         </span>
-                        <span className="truncate text-sm font-semibold text-slate-900 hover:text-[#2563EB] dark:text-slate-100 dark:hover:text-[#60A5FA]">
+                        <span className="truncate text-sm font-semibold text-cg-text hover:text-cg-accent-text">
                           {person.name}
                         </span>
                       </div>
                       {person.topFilms.length > 0 && (
-                        <p className="truncate pl-6 text-[11px] text-slate-500 dark:text-slate-400">
+                        <p className="truncate pl-6 text-[11px] text-cg-muted">
                           {person.topFilms.join(" · ")}
                         </p>
                       )}
                     </div>
                     <div className="shrink-0 text-right font-mono text-xs tabular-nums">
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      <span className="font-semibold text-cg-text">
                         {person.count}
                       </span>{" "}
-                      <span className="text-slate-500 dark:text-slate-400">film</span>
+                      <span className="text-cg-muted">film</span>
                       {person.avgRating != null && (
-                        <span className="ml-2 text-[#2563EB] dark:text-[#60A5FA]">
+                        <span className="ml-2 text-cg-rating">
                           {person.avgRating.toFixed(1)}
                           {scaleMax === 5 ? "★" : "/10"}
                         </span>
@@ -130,7 +133,7 @@ const PeopleCard: React.FC<{
                     </div>
                   </div>
                   <svg
-                    className="mt-1.5 h-1.5 w-full overflow-hidden rounded-sm bg-slate-100 text-[#2563EB] dark:bg-slate-800/80 dark:text-[#3B82F6]"
+                    className="mt-1.5 h-1.5 w-full overflow-hidden rounded-sm bg-cg-elevated text-cg-accent"
                     viewBox="0 0 100 6"
                     preserveAspectRatio="none"
                     aria-hidden="true"
@@ -146,9 +149,9 @@ const PeopleCard: React.FC<{
                 </button>
 
                 {isExpanded && (
-                  <div className="ml-6 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-3 text-xs dark:border-slate-800 dark:bg-[#0B0E14]">
+                  <div className="ml-6 rounded-xl border border-cg-border bg-cg-bg p-3 text-xs">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium text-slate-700 dark:text-slate-300">
+                      <span className="font-medium text-cg-secondary">
                         Film attribuiti ({person.filmItems.length})
                       </span>
                       {aiAvailable && (
@@ -156,13 +159,13 @@ const PeopleCard: React.FC<{
                           type="button"
                           disabled={busyPeople}
                           onClick={() => onReenrichFilms(person.filmItems)}
-                          className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-[#2563EB] transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-[#131722] dark:text-[#60A5FA]"
+                          className="rounded-md border border-cg-border bg-cg-surface px-2.5 py-1 text-[11px] font-medium text-cg-accent-text transition-colors hover:bg-cg-elevated disabled:opacity-50"
                         >
                           Rianalizza questi {person.filmItems.length} film
                         </button>
                       )}
                     </div>
-                    <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+                    <p className="leading-relaxed text-cg-muted">
                       {person.filmItems
                         .map((f) => `${displayTitle(f)}${f.y ? ` (${f.y})` : ""}`)
                         .join(" · ")}
@@ -205,58 +208,58 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
   return (
     <section className="space-y-6">
       {/* Header & KPI strip */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-6 dark:border-slate-800 dark:bg-[#131722]">
-        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+      <div className="rounded-2xl border border-cg-border bg-cg-surface p-6">
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-cg-border pb-3">
           <div>
-            <h2 className="font-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+            <h2 className="font-display text-2xl font-semibold tracking-tight text-cg-text">
               Statistiche dei film visti
             </h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-1 text-sm text-cg-muted">
               Panoramica calcolata in tempo reale dai tuoi {stats.totalSeen} film già visti.
             </p>
           </div>
           {stats.mostWatchedDecade && (
-            <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+            <span className="font-mono text-xs tabular-nums text-cg-muted">
               Decennio più visto: {stats.mostWatchedDecade.label} ({stats.mostWatchedDecade.count})
             </span>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-slate-200/80 bg-[#F5F7FA] px-4 py-3 dark:border-slate-800 dark:bg-[#0B0E14]">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="rounded-xl border border-cg-border bg-cg-bg px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-cg-muted">
               Film visti
             </div>
-            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-cg-text">
               {stats.totalSeen}
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200/80 bg-[#F5F7FA] px-4 py-3 dark:border-slate-800 dark:bg-[#0B0E14]">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="rounded-xl border border-cg-border bg-cg-bg px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-cg-muted">
               Film votati
             </div>
-            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-cg-text">
               {stats.ratedCount}
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200/80 bg-[#F5F7FA] px-4 py-3 dark:border-slate-800 dark:bg-[#0B0E14]">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="rounded-xl border border-cg-border bg-cg-bg px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-cg-muted">
               Media voti
             </div>
-            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-[#2563EB] dark:text-[#60A5FA]">
+            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-cg-rating">
               {stats.avgRating != null
                 ? `${stats.avgRating.toFixed(2)}${stats.scaleMax === 5 ? "★" : "/10"}`
                 : "—"}
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200/80 bg-[#F5F7FA] px-4 py-3 dark:border-slate-800 dark:bg-[#0B0E14]">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="rounded-xl border border-cg-border bg-cg-bg px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-cg-muted">
               Rivisti
             </div>
-            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-cg-text">
               {stats.rewatchesCount}
             </div>
           </div>
@@ -266,18 +269,18 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
       {/* Rating distribution & Preferred decades */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Distribuzione dei voti */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 dark:border-slate-800 dark:bg-[#131722]">
-          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+        <div className="rounded-2xl border border-cg-border bg-cg-surface p-5">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-cg-border pb-3">
             <div>
-              <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <h3 className="font-display text-lg font-semibold text-cg-text">
                 Distribuzione dei voti
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-cg-muted">
                 {stats.ratedCount} valutazioni su scala {stats.scaleMax === 5 ? "0.5–5★" : "1–10"}
               </p>
             </div>
             {stats.peakRatingBucket && (
-              <span className="font-mono text-xs font-medium tabular-nums text-[#2563EB] dark:text-[#60A5FA]">
+              <span className="font-mono text-xs font-medium tabular-nums text-cg-accent-text">
                 Picco: {stats.peakRatingBucket.label}
                 {stats.scaleMax === 5 ? "★" : ""} ({stats.peakRatingBucket.count})
               </span>
@@ -285,7 +288,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
           </div>
 
           {stats.ratedCount === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            <p className="py-10 text-center text-sm text-cg-muted">
               Nessun film ancora votato.
             </p>
           ) : (
@@ -302,16 +305,14 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                       className="flex flex-col items-center gap-1.5"
                       title={`${b.label}${stats.scaleMax === 5 ? "★" : ""}: ${b.count} film`}
                     >
-                      <span className="font-mono text-[10px] tabular-nums text-slate-500 dark:text-slate-400">
+                      <span className="font-mono text-[10px] tabular-nums text-cg-muted">
                         {b.count > 0 ? b.count : ""}
                       </span>
-                      <div className="flex h-32 w-full items-end rounded-sm bg-slate-100/80 p-0.5 dark:bg-[#0B0E14]">
+                      <div className="flex h-32 w-full items-end rounded-sm bg-cg-bg p-0.5">
                         {b.count > 0 && (
                           <svg
                             className={`h-full w-full ${
-                              isPeak
-                                ? "text-[#2563EB] dark:text-[#3B82F6]"
-                                : "text-slate-400 dark:text-slate-600"
+                              isPeak ? "text-cg-accent" : "text-cg-chart-muted"
                             }`}
                             viewBox="0 0 24 100"
                             preserveAspectRatio="none"
@@ -331,8 +332,8 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                       <span
                         className={`font-mono text-[11px] tabular-nums ${
                           isPeak
-                            ? "font-semibold text-[#2563EB] dark:text-[#60A5FA]"
-                            : "text-slate-600 dark:text-slate-400"
+                            ? "font-semibold text-cg-accent-text"
+                            : "text-cg-muted"
                         }`}
                       >
                         {b.label}
@@ -346,18 +347,18 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
         </div>
 
         {/* Decenni preferiti */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 dark:border-slate-800 dark:bg-[#131722]">
-          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+        <div className="rounded-2xl border border-cg-border bg-cg-surface p-5">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-cg-border pb-3">
             <div>
-              <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <h3 className="font-display text-lg font-semibold text-cg-text">
                 Decenni preferiti
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-cg-muted">
                 Volume di visione e media voto per epoca
               </p>
             </div>
             {stats.highestRatedDecade && stats.highestRatedDecade.avgRating != null && (
-              <span className="font-mono text-xs font-medium tabular-nums text-[#2563EB] dark:text-[#60A5FA]">
+              <span className="font-mono text-xs font-medium tabular-nums text-cg-accent-text">
                 Media top: {stats.highestRatedDecade.label} ·{" "}
                 {stats.highestRatedDecade.avgRating.toFixed(2)}
                 {stats.scaleMax === 5 ? "★" : "/10"}
@@ -366,7 +367,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
           </div>
 
           {stats.decades.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            <p className="py-10 text-center text-sm text-cg-muted">
               Nessun anno di uscita disponibile.
             </p>
           ) : (
@@ -379,19 +380,19 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                     <span
                       className={`font-mono text-xs tabular-nums ${
                         isBestRated || isMostWatched
-                          ? "font-semibold text-slate-900 dark:text-slate-100"
-                          : "text-slate-600 dark:text-slate-400"
+                          ? "font-semibold text-cg-text"
+                          : "text-cg-muted"
                       }`}
                     >
                       {d.label}
                     </span>
                     <svg
-                      className={`h-2.5 w-full overflow-hidden rounded-sm bg-slate-100 dark:bg-[#0B0E14] ${
+                      className={`h-2.5 w-full overflow-hidden rounded-sm bg-cg-bg ${
                         isBestRated
-                          ? "text-[#2563EB] dark:text-[#3B82F6]"
+                          ? "text-cg-accent"
                           : isMostWatched
-                          ? "text-slate-700 dark:text-slate-300"
-                          : "text-slate-400 dark:text-slate-600"
+                          ? "text-cg-secondary"
+                          : "text-cg-chart-muted"
                       }`}
                       viewBox="0 0 100 10"
                       preserveAspectRatio="none"
@@ -406,15 +407,15 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                       />
                     </svg>
                     <div className="text-right font-mono text-xs tabular-nums">
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      <span className="font-semibold text-cg-text">
                         {d.count}
                       </span>
                       {d.avgRating != null && (
                         <span
                           className={`ml-2 ${
                             isBestRated
-                              ? "font-semibold text-[#2563EB] dark:text-[#60A5FA]"
-                              : "text-slate-500 dark:text-slate-400"
+                              ? "font-semibold text-cg-accent-text"
+                              : "text-cg-muted"
                           }`}
                         >
                           {d.avgRating.toFixed(1)}
@@ -437,17 +438,17 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
         stats.seenWithActors > 0 ||
         busyPeople ||
         peopleProgress) && (
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-[#131722]">
+        <div className="rounded-2xl border border-cg-border bg-cg-surface p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-800 dark:text-slate-200">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-cg-text">
                 <span>
                   Registi noti: {stats.seenWithDirector}/{stats.totalSeen} · Attori reali noti: {stats.seenWithActors}/{stats.totalSeen}
                   {stats.checkedNoCastCount > 0 &&
                     ` · ${stats.checkedNoCastCount} verificati senza cast`}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-cg-muted">
                 {peopleProgress ||
                   "Esclude automaticamente i doppiatori dei film d'animazione (mantenendo gli attori tradizionali come Tom Hanks nei loro film dal vivo). Clicca un nome qui sotto per ispezionare o correggere i film collegati."}
               </p>
@@ -458,7 +459,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                 <button
                   type="button"
                   onClick={onStopEnrichPeople}
-                  className="rounded-lg border border-slate-300 bg-[#F5F7FA] px-3.5 py-2 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-200 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-cg-border-strong bg-cg-bg px-3.5 py-2 text-xs font-semibold text-cg-text transition-colors hover:bg-cg-elevated whitespace-nowrap shrink-0"
                 >
                   Ferma analisi
                 </button>
@@ -469,7 +470,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                       type="button"
                       disabled={!aiAvailable}
                       onClick={onEnrichPeople}
-                      className="rounded-lg bg-[#2563EB] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+                      className="rounded-lg bg-cg-accent px-3.5 py-2 text-xs font-semibold text-cg-accent-fg transition-colors hover:bg-cg-accent-hover disabled:opacity-50 whitespace-nowrap shrink-0"
                     >
                       {stats.seenWithDirector === 0 && stats.seenWithActors === 0
                         ? `Analizza registi e attori (${missingCount})`
@@ -481,7 +482,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                       type="button"
                       disabled={!aiAvailable}
                       onClick={onRetryCheckedPeople}
-                      className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-3.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                      className="rounded-lg border border-cg-border bg-cg-bg px-3.5 py-2 text-xs font-medium text-cg-secondary transition-colors hover:bg-cg-elevated disabled:opacity-50 whitespace-nowrap shrink-0"
                     >
                       Riprova i {stats.checkedNoCastCount} senza cast
                     </button>
@@ -491,7 +492,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                       type="button"
                       disabled={!aiAvailable}
                       onClick={onResetAndReenrichPeople}
-                      className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-3.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                      className="rounded-lg border border-cg-border bg-cg-bg px-3.5 py-2 text-xs font-medium text-cg-secondary transition-colors hover:bg-cg-elevated disabled:opacity-50 whitespace-nowrap shrink-0"
                     >
                       Rianalizza tutto (solo attori reali)
                     </button>
@@ -536,15 +537,15 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
       {stats.diaryStats && (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Monthly Pace Comparison */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 dark:border-slate-800 dark:bg-[#131722]">
-            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+          <div className="rounded-2xl border border-cg-border bg-cg-surface p-5">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-cg-border pb-3">
               <div>
-                <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <h3 className="font-display text-lg font-semibold text-cg-text">
                   Ritmo mensile (Diario)
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-cg-muted">
                   {stats.diaryStats.currentYear}:{" "}
-                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                  <span className="font-mono font-semibold text-cg-text">
                     {stats.diaryStats.currentYearCount}
                   </span>{" "}
                   film · {stats.diaryStats.previousYear}:{" "}
@@ -555,7 +556,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                 </p>
               </div>
               {stats.diaryStats.peakMonth && (
-                <span className="font-mono text-xs font-medium tabular-nums text-[#2563EB] dark:text-[#60A5FA]">
+                <span className="font-mono text-xs font-medium tabular-nums text-cg-accent-text">
                   Picco: {stats.diaryStats.peakMonth.label} ({stats.diaryStats.peakMonth.count})
                 </span>
               )}
@@ -569,13 +570,13 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                     className="flex flex-col items-center gap-1.5"
                     title={`${m.label}: ${m.currentCount} (${stats.diaryStats!.currentYear}) vs ${m.previousCount} (${stats.diaryStats!.previousYear})`}
                   >
-                    <span className="font-mono text-[10px] tabular-nums text-slate-600 dark:text-slate-400">
+                    <span className="font-mono text-[10px] tabular-nums text-cg-muted">
                       {m.currentCount > 0 ? m.currentCount : ""}
                     </span>
-                    <div className="flex h-28 w-full items-end justify-center gap-0.5 rounded-sm bg-slate-100/80 p-0.5 dark:bg-[#0B0E14]">
+                    <div className="flex h-28 w-full items-end justify-center gap-0.5 rounded-sm bg-cg-bg p-0.5">
                       {m.previousCount > 0 && (
                         <svg
-                          className="h-full w-1/2 text-slate-300 dark:text-slate-700"
+                          className="h-full w-1/2 text-cg-chart-muted"
                           viewBox="0 0 12 100"
                           preserveAspectRatio="none"
                           aria-hidden="true"
@@ -592,7 +593,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                       )}
                       {m.currentCount > 0 && (
                         <svg
-                          className="h-full w-1/2 text-[#2563EB] dark:text-[#3B82F6]"
+                          className="h-full w-1/2 text-cg-accent"
                           viewBox="0 0 12 100"
                           preserveAspectRatio="none"
                           aria-hidden="true"
@@ -608,21 +609,21 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                         </svg>
                       )}
                     </div>
-                    <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                    <span className="font-mono text-[10px] text-cg-muted">
                       {m.label}
                     </span>
                   </div>
                 ))}
               </div>
-              <div className="mt-3 flex items-center justify-end gap-4 text-[11px] text-slate-500 dark:text-slate-400">
+              <div className="mt-3 flex items-center justify-end gap-4 text-[11px] text-cg-muted">
                 <span className="inline-flex items-center gap-1.5">
-                  <svg className="h-2.5 w-2.5 text-[#2563EB] dark:text-[#3B82F6]" viewBox="0 0 10 10" aria-hidden="true">
+                  <svg className="h-2.5 w-2.5 text-cg-accent" viewBox="0 0 10 10" aria-hidden="true">
                     <rect width="10" height="10" rx="2" fill="currentColor" />
                   </svg>
                   {stats.diaryStats.currentYear}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <svg className="h-2.5 w-2.5 text-slate-300 dark:text-slate-700" viewBox="0 0 10 10" aria-hidden="true">
+                  <svg className="h-2.5 w-2.5 text-cg-chart-muted" viewBox="0 0 10 10" aria-hidden="true">
                     <rect width="10" height="10" rx="2" fill="currentColor" />
                   </svg>
                   {stats.diaryStats.previousYear}
@@ -632,27 +633,27 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
           </div>
 
           {/* Most Rewatched Films */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 dark:border-slate-800 dark:bg-[#131722]">
-            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-slate-800">
+          <div className="rounded-2xl border border-cg-border bg-cg-surface p-5">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-cg-border pb-3">
               <div>
-                <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <h3 className="font-display text-lg font-semibold text-cg-text">
                   Film più rivisti
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-cg-muted">
                   Titoli con rewatch o visioni multiple nel Diario
                 </p>
               </div>
-              <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+              <span className="font-mono text-xs tabular-nums text-cg-muted">
                 {stats.diaryStats.topRewatches.length}
               </span>
             </div>
 
             {stats.diaryStats.topRewatches.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+              <p className="py-8 text-center text-sm text-cg-muted">
                 Nessun rewatch registrato ancora nel Diario.
               </p>
             ) : (
-              <ul className="divide-y divide-slate-200/70 dark:divide-slate-800">
+              <ul className="divide-y divide-cg-border">
                 {stats.diaryStats.topRewatches.map((item, idx) => (
                   <li
                     key={item.k}
@@ -660,28 +661,28 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+                        <span className="font-mono text-[11px] tabular-nums text-cg-muted">
                           {String(idx + 1).padStart(2, "0")}
                         </span>
-                        <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        <span className="truncate text-sm font-semibold text-cg-text">
                           {item.t}
                         </span>
                         {item.y && (
-                          <span className="shrink-0 font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                          <span className="shrink-0 font-mono text-xs tabular-nums text-cg-muted">
                             {item.y}
                           </span>
                         )}
                       </div>
-                      <p className="pl-6 text-[11px] text-slate-500 dark:text-slate-400">
+                      <p className="pl-6 text-[11px] text-cg-muted">
                         Ultima visione: {item.lastWatchedDate}
                       </p>
                     </div>
                     <div className="shrink-0 font-mono text-xs tabular-nums">
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      <span className="font-semibold text-cg-text">
                         {item.count}×
                       </span>
                       {item.rating != null && (
-                        <span className="ml-2 text-[#2563EB] dark:text-[#60A5FA]">
+                        <span className="ml-2 text-cg-rating">
                           {item.rating}
                           {stats.scaleMax === 5 ? "★" : "/10"}
                         </span>

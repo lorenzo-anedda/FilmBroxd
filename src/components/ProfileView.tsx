@@ -399,19 +399,19 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
         onResetAndReenrichPeople={handleResetAndReenrichPeople}
       />
 
-      <section className="rounded-2xl border border-slate-200/90 bg-white p-6 dark:border-slate-800 dark:bg-[#131722]">
-        <div className="mb-4 border-b border-slate-200/80 pb-3 dark:border-slate-800">
-          <h2 className="font-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+      <section className="rounded-2xl border border-cg-border bg-cg-surface p-6">
+        <div className="mb-4 border-b border-cg-border pb-3">
+          <h2 className="font-display text-2xl font-semibold tracking-tight text-cg-text">
             Profilo gusti e metadati
           </h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-1 text-sm text-cg-muted">
             Il profilo guida ogni consiglio. Puoi modificarlo liberamente a mano o rigenerarlo dai tuoi voti.
           </p>
         </div>
 
         <label
           htmlFor="profile-editor"
-          className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+          className="mb-2 block text-xs font-semibold uppercase tracking-wider text-cg-muted"
         >
           Il tuo profilo cinematografico
         </label>
@@ -421,7 +421,7 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
           value={lib.profile}
           onChange={(e) => onUpdateProfile(e.target.value)}
           placeholder="Premi «Rigenera profilo dai voti» per far analizzare i tuoi film votati."
-          className="w-full rounded-xl border border-slate-200 bg-[#F5F7FA] p-3.5 text-sm leading-relaxed text-slate-900 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-100 dark:focus:border-[#3B82F6]"
+          className="w-full rounded-xl border border-cg-border bg-cg-bg p-3.5 text-sm leading-relaxed text-cg-text placeholder:text-cg-muted focus:border-cg-accent focus:outline-none"
         />
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -429,7 +429,7 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
             type="button"
             disabled={!aiAvailable || busyProfile || busyEnrich}
             onClick={handleGenerateProfile}
-            className="rounded-lg bg-[#2563EB] px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+            className="rounded-lg bg-cg-accent px-4 py-2.5 text-xs font-semibold text-cg-accent-fg transition-colors hover:bg-cg-accent-hover disabled:opacity-50 whitespace-nowrap shrink-0"
           >
             {busyProfile ? "Analizzo i voti…" : "Rigenera profilo dai voti"}
           </button>
@@ -438,7 +438,7 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
             type="button"
             disabled={!aiAvailable || busyEnrich || busyProfile || missingList.length === 0}
             onClick={handleEnrichList}
-            className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 disabled:opacity-50 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-lg border border-cg-border bg-cg-bg px-4 py-2.5 text-xs font-medium text-cg-secondary transition-colors hover:border-cg-border-strong hover:bg-cg-elevated disabled:opacity-50 whitespace-nowrap shrink-0"
           >
             {busyEnrich
               ? "Arricchimento in corso…"
@@ -448,28 +448,28 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-cg-muted">
           <span className="font-mono tabular-nums">
             Copertura metadati: {enrichedCount}/{fullWatch.length} film con genere, durata e regista
           </span>
           {statusMsg && (
-            <span className="font-medium text-slate-700 dark:text-slate-300">
+            <span className="font-medium text-cg-secondary">
               {statusMsg}
             </span>
           )}
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200/90 bg-white p-6 dark:border-slate-800 dark:bg-[#131722]">
-        <div className="mb-3 flex items-baseline justify-between gap-4 border-b border-slate-200/80 pb-3 dark:border-slate-800">
-          <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-100">
+      <section className="rounded-2xl border border-cg-border bg-cg-surface p-6">
+        <div className="mb-3 flex items-baseline justify-between gap-4 border-b border-cg-border pb-3">
+          <h3 className="font-display text-lg font-semibold text-cg-text">
             Motivi degli scarti recenti
           </h3>
           {(lib.why || []).length > 0 && (
             <button
               type="button"
               onClick={onClearWhy}
-              className="text-xs font-medium text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-slate-100"
+              className="text-xs font-medium text-cg-muted underline-offset-4 hover:text-cg-text hover:underline"
             >
               Azzera annotazioni
             </button>
@@ -477,11 +477,11 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
         </div>
 
         {!(lib.why || []).length ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-cg-muted">
             Nessun motivo annotato finora. Quando scarti o rimandi un film puoi indicare il motivo per affinare le proposte successive.
           </p>
         ) : (
-          <ul className="divide-y divide-slate-200/70 text-sm dark:divide-slate-800">
+          <ul className="divide-y divide-cg-border text-sm">
             {(lib.why || [])
               .slice(-15)
               .reverse()
@@ -490,10 +490,10 @@ Scrivi in italiano un profilo di massimo 150 parole: generi, toni, registi, epoc
                   key={`${item.k}-${item.ts}`}
                   className="flex flex-wrap items-baseline justify-between gap-2 py-2.5"
                 >
-                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                  <span className="font-medium text-cg-text">
                     {item.t} {item.y ? `(${item.y})` : ""}
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                  <span className="text-xs text-cg-muted">
                     {item.w}
                   </span>
                 </li>

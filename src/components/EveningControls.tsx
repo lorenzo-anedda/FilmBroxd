@@ -149,18 +149,18 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
 
   return (
     <aside className="lg:col-span-5 lg:sticky lg:top-20">
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 dark:border-slate-800 dark:bg-[#131722]">
+      <div className="rounded-2xl border border-cg-border bg-cg-surface p-5 sm:p-6">
         {/* Quick presets */}
         <div className="pb-5">
           <div className="mb-2.5 flex items-baseline justify-between gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold uppercase tracking-wider text-cg-muted">
               Serate tipo
             </span>
             {hasAnyResettable && (
               <button
                 type="button"
                 onClick={onResetAllFilters}
-                className="text-xs font-medium text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-slate-100"
+                className="text-xs font-medium text-cg-muted underline-offset-4 hover:text-cg-text hover:underline"
               >
                 Azzera tutto
               </button>
@@ -178,17 +178,22 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                 <button
                   key={preset.id}
                   type="button"
+                  aria-pressed={isMatch}
                   onClick={() => onApplyPreset(preset)}
                   className={`flex items-baseline justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-colors ${
                     isMatch
-                      ? "border-[#2563EB] bg-[#2563EB]/[0.07] text-[#1D4ED8] dark:border-[#3B82F6] dark:bg-[#3B82F6]/[0.12] dark:text-[#60A5FA]"
-                      : "border-slate-200 bg-[#F5F7FA] text-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700/80 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                      ? "border-cg-accent bg-cg-accent-soft text-cg-accent-text"
+                      : "border-cg-border bg-cg-elevated text-cg-secondary hover:border-cg-border-strong hover:text-cg-text"
                   }`}
                 >
                   <span className="truncate text-xs font-semibold">
                     {preset.label}
                   </span>
-                  <span className="shrink-0 font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                  <span
+                    className={`shrink-0 font-mono text-[10px] ${
+                      isMatch ? "text-cg-accent-text" : "text-cg-muted"
+                    }`}
+                  >
                     {preset.detail}
                   </span>
                 </button>
@@ -198,22 +203,23 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
         </div>
 
         {/* Dedicated Companion selector */}
-        <div className="border-t border-slate-200/80 pt-5 dark:border-slate-800">
-          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <div className="border-t border-cg-border pt-5">
+          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-cg-muted">
             Con chi guardi
           </span>
-          <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-[#F5F7FA] p-1 dark:border-slate-800 dark:bg-[#0B0E14]">
+          <div className="grid grid-cols-3 gap-1 rounded-xl border border-cg-border bg-cg-elevated p-1">
             {COMPANION_OPTIONS.map((comp) => {
               const active = selectedMoods.has(comp);
               return (
                 <button
                   key={comp}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => onSelectCompanion(comp)}
                   className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                     active
-                      ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
-                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                      ? "bg-cg-accent text-cg-accent-fg font-semibold"
+                      : "text-cg-muted hover:text-cg-text"
                   }`}
                 >
                   {comp}
@@ -226,7 +232,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
             <div className="mt-4">
               <label
                 htmlFor="partner-taste"
-                className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                className="mb-1.5 block text-xs font-medium text-cg-muted"
               >
                 Gusti dell’altra persona (salvati)
               </label>
@@ -236,15 +242,15 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                 value={partnerTaste}
                 onChange={(e) => onChangePartnerTaste(e.target.value)}
                 placeholder="Es. Marta: ama commedie e thriller, no horror o film troppo lenti."
-                className="w-full rounded-xl border border-slate-200 bg-[#F5F7FA] p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#3B82F6]"
+                className="w-full rounded-xl border border-cg-border bg-cg-elevated p-3 text-sm text-cg-text placeholder:text-cg-muted focus:border-cg-accent focus:outline-none"
               />
             </div>
           )}
         </div>
 
         {/* Core Mood 3x3 grid */}
-        <div className="mt-5 border-t border-slate-200/80 pt-5 dark:border-slate-800">
-          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <div className="mt-5 border-t border-cg-border pt-5">
+          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-cg-muted">
             Come ti senti
           </span>
           <div className="grid grid-cols-3 gap-2">
@@ -254,11 +260,12 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                 <button
                   key={m}
                   type="button"
+                  aria-pressed={on}
                   onClick={() => onToggleMood(m)}
                   className={`truncate rounded-xl border px-2 py-2 text-xs font-medium transition-colors whitespace-nowrap ${
                     on
-                      ? "border-[#2563EB] bg-[#2563EB] text-white dark:border-[#3B82F6] dark:bg-[#3B82F6]"
-                      : "border-slate-200 bg-[#F5F7FA] text-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700/80 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                      ? "border-cg-accent bg-cg-accent text-cg-accent-fg font-semibold"
+                      : "border-cg-border bg-cg-elevated text-cg-secondary hover:border-cg-border-strong hover:text-cg-text"
                   }`}
                 >
                   {m}
@@ -269,11 +276,11 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
         </div>
 
         {/* Risk */}
-        <div className="mt-5 border-t border-slate-200/80 pt-5 dark:border-slate-800">
-          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <div className="mt-5 border-t border-cg-border pt-5">
+          <span className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-cg-muted">
             Voglia di
           </span>
-          <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 bg-[#F5F7FA] p-1 dark:border-slate-800 dark:bg-[#0B0E14]">
+          <div className="grid grid-cols-3 gap-1 rounded-xl border border-cg-border bg-cg-elevated p-1">
             {(
               [
                 ["", "Equilibrata"],
@@ -286,11 +293,12 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                 <button
                   key={label}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => onChangeRisk(val)}
                   className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                     active
-                      ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
-                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                      ? "bg-cg-accent text-cg-accent-fg font-semibold"
+                      : "text-cg-muted hover:text-cg-text"
                   }`}
                 >
                   {label}
@@ -301,10 +309,10 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
         </div>
 
         {/* Free text context */}
-        <div className="mt-5 border-t border-slate-200/80 pt-5 dark:border-slate-800">
+        <div className="mt-5 border-t border-cg-border pt-5">
           <label
             htmlFor="evening-context"
-            className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+            className="mb-2 block text-xs font-semibold uppercase tracking-wider text-cg-muted"
           >
             Con parole tue
           </label>
@@ -314,21 +322,22 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
             value={ctxText}
             onChange={(e) => onChangeCtxText(e.target.value)}
             placeholder="Es. Ho 2 ore, qualcosa di teso o brillante ma non pesante…"
-            className="w-full rounded-xl border border-slate-200 bg-[#F5F7FA] p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#3B82F6]"
+            className="w-full rounded-xl border border-cg-border bg-cg-elevated p-3 text-sm text-cg-text placeholder:text-cg-muted focus:border-cg-accent focus:outline-none"
           />
         </div>
 
         {/* Collapsible filters */}
-        <div className="mt-5 border-t border-slate-200/80 pt-4 dark:border-slate-800">
+        <div className="mt-5 border-t border-cg-border pt-4">
           <button
             type="button"
+            aria-expanded={filtersOpen}
             onClick={onToggleFiltersOpen}
-            className="flex w-full items-center justify-between py-1 text-left text-sm font-medium text-slate-800 dark:text-slate-200"
+            className="flex w-full items-center justify-between py-1 text-left text-sm font-medium text-cg-text"
           >
             <span className="inline-flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <SlidersHorizontal className="h-4 w-4 text-cg-muted" />
               <span>Filtri avanzati</span>
-              <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-mono text-xs text-cg-muted">
                 ·{" "}
                 {activeFilterGroups
                   ? `${activeFilterGroups} ${
@@ -338,20 +347,20 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
               </span>
             </span>
             {filtersOpen ? (
-              <ChevronUp className="h-4 w-4 text-slate-500" />
+              <ChevronUp className="h-4 w-4 text-cg-muted" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-slate-500" />
+              <ChevronDown className="h-4 w-4 text-cg-muted" />
             )}
           </button>
 
           {filtersOpen && (
-            <div className="mt-4 space-y-5 border-t border-slate-200/70 pt-4 dark:border-slate-800">
+            <div className="mt-4 space-y-5 border-t border-cg-border pt-4">
               <div>
                 <div className="mb-1 flex items-baseline justify-between text-xs">
-                  <span className="font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold uppercase tracking-wider text-cg-muted">
                     Durata
                   </span>
-                  <span className="font-mono tabular-nums text-slate-800 dark:text-slate-200">
+                  <span className="font-mono tabular-nums text-cg-text">
                     {durationLabel}
                   </span>
                 </div>
@@ -366,7 +375,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                       width="100%"
                       height="4"
                       rx="2"
-                      className="fill-slate-200 dark:fill-slate-700"
+                      className="fill-cg-border"
                     />
                     <rect
                       x={`${leftPct}%`}
@@ -374,7 +383,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                       width={`${fillWidthPct}%`}
                       height="4"
                       rx="2"
-                      className="fill-[#2563EB] dark:fill-[#3B82F6]"
+                      className="fill-cg-accent"
                     />
                   </svg>
                   <input
@@ -409,7 +418,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
               </div>
 
               <div>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-cg-muted">
                   Genere
                 </span>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -419,11 +428,12 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                       <button
                         key={g.value}
                         type="button"
+                        aria-pressed={on}
                         onClick={() => onToggleGenre(g.value)}
                         className={`truncate rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                           on
-                            ? "border-[#2563EB] bg-[#2563EB] text-white dark:border-[#3B82F6] dark:bg-[#3B82F6]"
-                            : "border-slate-200 bg-[#F5F7FA] text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                            ? "border-cg-accent bg-cg-accent text-cg-accent-fg font-semibold"
+                            : "border-cg-border bg-cg-elevated text-cg-secondary hover:border-cg-border-strong hover:text-cg-text"
                         }`}
                       >
                         {g.label}
@@ -434,7 +444,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
               </div>
 
               <div>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-cg-muted">
                   Cinema
                 </span>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -444,11 +454,12 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                       <button
                         key={c.value}
                         type="button"
+                        aria-pressed={on}
                         onClick={() => onToggleCountry(c.value)}
                         className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                           on
-                            ? "border-[#2563EB] bg-[#2563EB] text-white dark:border-[#3B82F6] dark:bg-[#3B82F6]"
-                            : "border-slate-200 bg-[#F5F7FA] text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                            ? "border-cg-accent bg-cg-accent text-cg-accent-fg font-semibold"
+                            : "border-cg-border bg-cg-elevated text-cg-secondary hover:border-cg-border-strong hover:text-cg-text"
                         }`}
                       >
                         {c.label}
@@ -459,7 +470,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
               </div>
 
               <div>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-cg-muted">
                   Epoca
                 </span>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
@@ -469,11 +480,12 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                       <button
                         key={d.value}
                         type="button"
+                        aria-pressed={on}
                         onClick={() => onToggleDecade(d.value)}
                         className={`truncate rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                           on
-                            ? "border-[#2563EB] bg-[#2563EB] text-white dark:border-[#3B82F6] dark:bg-[#3B82F6]"
-                            : "border-slate-200 bg-[#F5F7FA] text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+                            ? "border-cg-accent bg-cg-accent text-cg-accent-fg font-semibold"
+                            : "border-cg-border bg-cg-elevated text-cg-secondary hover:border-cg-border-strong hover:text-cg-text"
                         }`}
                       >
                         {d.label}
@@ -483,7 +495,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-cg-muted">
                 <span className="font-mono tabular-nums">
                   {filteredCount} film corrispondono ai filtri
                   {unknownMetaCount > 0
@@ -493,7 +505,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
                 <button
                   type="button"
                   onClick={onResetAllFilters}
-                  className="font-medium text-slate-700 underline-offset-4 hover:underline dark:text-slate-300"
+                  className="font-medium text-cg-secondary underline-offset-4 hover:text-cg-text hover:underline"
                 >
                   Azzera filtri
                 </button>
@@ -503,31 +515,33 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
         </div>
 
         {/* Source & Engine switch & Primary CTA */}
-        <div className="mt-6 space-y-3 border-t border-slate-200/80 pt-5 dark:border-slate-800">
+        <div className="mt-6 space-y-3 border-t border-cg-border pt-5">
           {rewatchCount > 0 && (
             <div className="flex items-center justify-between gap-3 text-xs">
-              <span className="text-slate-500 dark:text-slate-400">
+              <span className="text-cg-muted">
                 Peschiamo da
               </span>
-              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-[#F5F7FA] p-0.5 dark:border-slate-800 dark:bg-[#0B0E14]">
+              <div className="flex items-center gap-1 rounded-xl border border-cg-border bg-cg-elevated p-0.5">
                 <button
                   type="button"
+                  aria-pressed={!rewatchMode}
                   onClick={() => onChangeRewatchMode(false)}
                   className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                     !rewatchMode
-                      ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
-                      : "text-slate-600 dark:text-slate-400"
+                      ? "bg-cg-accent text-cg-accent-fg font-semibold"
+                      : "text-cg-muted hover:text-cg-text"
                   }`}
                 >
                   Watchlist
                 </button>
                 <button
                   type="button"
+                  aria-pressed={rewatchMode}
                   onClick={() => onChangeRewatchMode(true)}
                   className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                     rewatchMode
-                      ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
-                      : "text-slate-600 dark:text-slate-400"
+                      ? "bg-cg-accent text-cg-accent-fg font-semibold"
+                      : "text-cg-muted hover:text-cg-text"
                   }`}
                 >
                   Rewatch confortevole
@@ -537,29 +551,31 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           )}
 
           <div className="flex items-center justify-between gap-3 text-xs">
-            <span className="text-slate-500 dark:text-slate-400">
+            <span className="text-cg-muted">
               Motore di scelta
             </span>
-            <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-[#F5F7FA] p-0.5 dark:border-slate-800 dark:bg-[#0B0E14]">
+            <div className="flex items-center gap-1 rounded-xl border border-cg-border bg-cg-elevated p-0.5">
               <button
                 type="button"
                 disabled={!aiAvailable}
+                aria-pressed={engineMode === "ai" && aiAvailable}
                 onClick={() => onChangeEngineMode("ai")}
                 className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-40 whitespace-nowrap shrink-0 ${
                   engineMode === "ai" && aiAvailable
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                    : "text-slate-600 dark:text-slate-400"
+                    ? "bg-cg-text text-cg-bg font-semibold"
+                    : "text-cg-muted hover:text-cg-text"
                 }`}
               >
                 AI Gemini
               </button>
               <button
                 type="button"
+                aria-pressed={engineMode === "local" || !aiAvailable}
                 onClick={() => onChangeEngineMode("local")}
                 className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                   engineMode === "local" || !aiAvailable
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                    : "text-slate-600 dark:text-slate-400"
+                    ? "bg-cg-text text-cg-bg font-semibold"
+                    : "text-cg-muted hover:text-cg-text"
                 }`}
               >
                 Punteggio locale
@@ -571,7 +587,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
             type="button"
             disabled={loading}
             onClick={onRecommend}
-            className="w-full rounded-xl bg-[#2563EB] px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+            className="w-full rounded-xl bg-cg-accent px-5 py-3.5 text-sm font-semibold text-cg-accent-fg transition-colors hover:bg-cg-accent-hover disabled:opacity-50"
           >
             {loading
               ? rewatchMode
@@ -585,7 +601,7 @@ export const EveningControls: React.FC<EveningControlsProps> = ({
           </button>
 
           {!filtersOpen && (
-            <p className="text-center font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+            <p className="text-center font-mono text-xs tabular-nums text-cg-muted">
               {rewatchMode
                 ? `${rewatchCount} film candidati per il rewatch`
                 : `${filteredCount} film disponibili in watchlist`}

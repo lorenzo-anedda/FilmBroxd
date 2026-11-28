@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-45 -10 345 276" role="img" aria-labelledby="title">
+<title id="title">Cineglyph — crescent and projection beam</title>
+<defs>
+<linearGradient id="beam" x1="88" y1="128" x2="270" y2="128" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#D95D32"/><stop offset=".24" stop-color="#FF8845"/><stop offset=".65" stop-color="#BA5538" stop-opacity=".67"/><stop offset="1" stop-color="#98533D" stop-opacity="0"/></linearGradient>
+<clipPath id="cone"><path d="M 88 128 L 270 57 L 270 199 Z"/></clipPath>
+</defs>
+<path d="M 156 40 A 108 108 0 1 0 156 216 A 94 94 0 1 1 156 40 Z" fill="#F2E7D8"/>
+<g class="beam"><path d="M 88 128 L 270 57 L 270 199 Z" fill="url(#beam)"/></g>
+</svg>

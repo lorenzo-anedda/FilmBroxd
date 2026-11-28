@@ -140,24 +140,24 @@ const ContenderCard: React.FC<{
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className={`group relative flex h-full w-full flex-col justify-between rounded-2xl border bg-white p-5 text-left transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563EB] dark:bg-[#131722] ${
+      className={`group relative flex h-full w-full flex-col justify-between rounded-2xl border bg-cg-surface p-5 text-left transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cg-focus ${
         state === "winner"
-          ? "duel-winner border-[#2563EB] ring-2 ring-[#2563EB]/25 dark:border-[#3B82F6] dark:ring-[#3B82F6]/30"
+          ? "duel-winner border-cg-accent ring-2 ring-cg-accent/25"
           : state === "loser"
-          ? "duel-loser border-slate-200/80 dark:border-slate-800"
-          : "border-slate-200/90 hover:-translate-y-0.5 hover:border-[#2563EB]/60 hover:shadow-md dark:border-slate-800 dark:hover:border-[#3B82F6]/60"
+          ? "duel-loser border-cg-border"
+          : "border-cg-border hover:-translate-y-0.5 hover:border-cg-accent/70 hover:shadow-md"
       }`}
     >
       <div>
         <div className="mb-3 flex items-center justify-between gap-2 text-xs">
-          <span className="font-mono uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          <span className="font-mono uppercase tracking-wider text-cg-muted">
             {sideLabel}
           </span>
           <span
             className={`font-mono text-[11px] font-semibold transition-colors ${
               state === "winner"
-                ? "text-[#2563EB] dark:text-[#60A5FA]"
-                : "text-slate-400 group-hover:text-[#2563EB] dark:text-slate-500 dark:group-hover:text-[#60A5FA]"
+                ? "text-cg-accent-text"
+                : "text-cg-muted group-hover:text-cg-accent-text"
             }`}
           >
             {state === "winner" ? "PASSA IL TURNO" : `Tasto ${shortcutHint}`}
@@ -166,7 +166,7 @@ const ContenderCard: React.FC<{
 
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="mx-auto w-36 shrink-0 sm:mx-0 sm:w-40">
-            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100 dark:border-slate-800 dark:bg-[#0B0E14]">
+            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-cg-border bg-cg-elevated">
               <PosterImage
                 cacheKey={filmKey(film)}
                 title={title}
@@ -181,23 +181,23 @@ const ContenderCard: React.FC<{
 
           <div className="min-w-0 flex-1 space-y-2.5">
             <div>
-              <h3 className="font-display text-xl font-bold leading-snug tracking-tight text-slate-900 dark:text-slate-100 [text-wrap:balance]">
+              <h3 className="font-display text-xl font-bold leading-snug tracking-tight text-cg-text [text-wrap:balance]">
                 {title}
               </h3>
               {origDiffers && (
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-xs text-cg-muted">
                   {origDiffers}
                 </p>
               )}
             </div>
 
             {metaParts.length > 0 && (
-              <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+              <p className="text-xs leading-relaxed text-cg-muted">
                 {metaParts.join(" · ")}
               </p>
             )}
 
-            <p className="line-clamp-5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+            <p className="line-clamp-5 text-xs leading-relaxed text-cg-secondary">
               {preview?.loading && !preview.description
                 ? "Recupero trama e locandina…"
                 : preview?.description ||
@@ -207,12 +207,12 @@ const ContenderCard: React.FC<{
         </div>
       </div>
 
-      <div className="mt-5 flex items-center justify-between border-t border-slate-200/80 pt-3.5 text-xs font-semibold dark:border-slate-800">
+      <div className="mt-5 flex items-center justify-between border-t border-cg-border pt-3.5 text-xs font-semibold">
         <span
           className={
             state === "winner"
-              ? "text-[#2563EB] dark:text-[#60A5FA]"
-              : "text-slate-700 group-hover:text-[#2563EB] dark:text-slate-300 dark:group-hover:text-[#60A5FA]"
+              ? "text-cg-accent-text"
+              : "text-cg-secondary group-hover:text-cg-accent-text"
           }
         >
           {state === "winner" ? "Avanza al turno successivo" : "Scegli questo film"}
@@ -220,8 +220,8 @@ const ContenderCard: React.FC<{
         <ArrowRight
           className={`h-4 w-4 transition-transform duration-200 ${
             state === "winner"
-              ? "translate-x-1 text-[#2563EB] dark:text-[#60A5FA]"
-              : "text-slate-400 group-hover:translate-x-1 group-hover:text-[#2563EB] dark:group-hover:text-[#60A5FA]"
+              ? "translate-x-1 text-cg-accent-text"
+              : "text-cg-muted group-hover:translate-x-1 group-hover:text-cg-accent-text"
           }`}
         />
       </div>
@@ -519,17 +519,17 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
   if (phase === "MENU") {
     return (
       <div className="mx-auto max-w-4xl space-y-6">
-        <section className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 dark:border-slate-800 dark:bg-[#131722]">
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-slate-200/80 pb-5 dark:border-slate-800">
+        <section className="rounded-2xl border border-cg-border bg-cg-surface p-6 sm:p-8">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-cg-border pb-5">
             <div className="max-w-2xl">
-              <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#2563EB] dark:text-[#60A5FA]">
+              <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-cg-accent-text">
                 <Trophy className="h-4 w-4" />
                 <span>Torneo a eliminazione diretta</span>
               </div>
-              <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900 dark:text-white [text-wrap:balance]">
+              <h1 className="font-display text-3xl font-bold tracking-tight text-cg-text [text-wrap:balance]">
                 ReelRouette
               </h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+              <p className="mt-2 text-sm leading-relaxed text-cg-muted">
                 Scegli la modalità tra Ottavi (16 film) o Quarti (8 film) e filtra il pool iniziale: sfida dopo sfida con locandina e trama, eleggi il vincitore della serata.
               </p>
             </div>
@@ -537,7 +537,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
             <button
               type="button"
               onClick={() => setSoundEnabled((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-[#F5F7FA] px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-lg border border-cg-border bg-cg-bg px-3 py-2 text-xs font-medium text-cg-secondary transition-colors hover:bg-cg-elevated whitespace-nowrap shrink-0"
             >
               {soundEnabled ? (
                 <>
@@ -556,10 +556,10 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
           {/* Mode selector: Ottavi di finale (16) vs Quarti di finale (8) */}
           <div className="mb-6">
             <div className="mb-2.5 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-cg-muted">
                 Modalità torneo
               </span>
-              <span className="font-mono text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+              <span className="font-mono text-[11px] tabular-nums text-cg-muted">
                 Pool idoneo: {eligiblePool.length} film
               </span>
             </div>
@@ -572,22 +572,23 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                     key={fmt.size}
                     type="button"
                     disabled={unavailable}
+                    aria-pressed={active}
                     onClick={() => setBracketSize(fmt.size)}
                     className={`rounded-xl border p-4 text-left transition-colors disabled:opacity-45 ${
                       active
-                        ? "border-[#2563EB] bg-[#2563EB]/[0.06] dark:border-[#3B82F6] dark:bg-[#3B82F6]/[0.1]"
-                        : "border-slate-200 bg-[#F5F7FA] hover:border-slate-300 dark:border-slate-800 dark:bg-[#0B0E14] dark:hover:border-slate-700"
+                        ? "border-cg-accent bg-cg-accent-soft"
+                        : "border-cg-border bg-cg-bg hover:border-cg-border-strong"
                     }`}
                   >
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-display text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      <span className="font-display text-sm font-semibold text-cg-text">
                         {fmt.title}
                       </span>
-                      <span className="font-mono text-[11px] tabular-nums text-[#2563EB] dark:text-[#60A5FA]">
+                      <span className="font-mono text-[11px] tabular-nums text-cg-accent-text">
                         {fmt.size - 1} sfide
                       </span>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                    <p className="mt-1 text-xs leading-relaxed text-cg-muted">
                       {unavailable
                         ? `Servono almeno ${fmt.size} film idonei nel pool filtrato (ora ${eligiblePool.length}).`
                         : fmt.subtitle}
@@ -599,7 +600,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
           </div>
 
           {/* Pool source selector */}
-          <div className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-cg-muted">
             Da dove pescare i film
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -612,22 +613,23 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                   key={opt.id}
                   type="button"
                   disabled={tooSmall}
+                  aria-pressed={selected}
                   onClick={() => setSource(opt.id)}
                   className={`flex flex-col justify-between rounded-xl border p-4 text-left transition-colors disabled:opacity-45 ${
                     selected
-                      ? "border-[#2563EB] bg-[#2563EB]/[0.06] dark:border-[#3B82F6] dark:bg-[#3B82F6]/[0.1]"
-                      : "border-slate-200 bg-[#F5F7FA] hover:border-slate-300 dark:border-slate-800 dark:bg-[#0B0E14] dark:hover:border-slate-700"
+                      ? "border-cg-accent bg-cg-accent-soft"
+                      : "border-cg-border bg-cg-bg hover:border-cg-border-strong"
                   }`}
                 >
                   <div>
-                    <div className="font-display text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    <div className="font-display text-sm font-semibold text-cg-text">
                       {opt.title}
                     </div>
-                    <p className="mt-1.5 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                    <p className="mt-1.5 text-xs leading-relaxed text-cg-muted">
                       {opt.desc(bracketSize)}
                     </p>
                   </div>
-                  <div className="mt-4 font-mono text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                  <div className="mt-4 font-mono text-[11px] tabular-nums text-cg-muted">
                     {avail} film idonei
                   </div>
                 </button>
@@ -636,12 +638,13 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
           </div>
 
           {/* Initial pool filtering panel */}
-          <div className="mt-5 rounded-xl border border-slate-200/80 bg-[#F5F7FA] p-4 dark:border-slate-800 dark:bg-[#0B0E14]">
+          <div className="mt-5 rounded-xl border border-cg-border bg-cg-bg p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
+                aria-expanded={filtersOpen}
                 onClick={() => setFiltersOpen((v) => !v)}
-                className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 transition-colors hover:text-[#2563EB] dark:text-slate-200 dark:hover:text-[#60A5FA]"
+                className="inline-flex items-center gap-2 text-xs font-semibold text-cg-secondary transition-colors hover:text-cg-accent-text"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 <span>
@@ -654,11 +657,12 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                 {hasActiveFilters && source !== "seen_cult" && (
                   <button
                     type="button"
+                    aria-pressed={useEveningFilters}
                     onClick={() => setUseEveningFilters((v) => !v)}
                     className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors whitespace-nowrap shrink-0 ${
                       useEveningFilters
-                        ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
-                        : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#131722] dark:text-slate-300"
+                        ? "bg-cg-accent text-cg-accent-fg"
+                        : "border border-cg-border bg-cg-surface text-cg-secondary hover:bg-cg-elevated"
                     }`}
                   >
                     {useEveningFilters
@@ -671,7 +675,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                   <button
                     type="button"
                     onClick={resetPoolFilters}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 underline-offset-4 hover:text-slate-800 hover:underline dark:text-slate-400 dark:hover:text-slate-200"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-cg-muted underline-offset-4 hover:text-cg-text hover:underline"
                   >
                     <RotateCcw className="h-3 w-3" />
                     <span>Azzera filtri</span>
@@ -681,30 +685,30 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
             </div>
 
             {filtersOpen && (
-              <div className="mt-4 space-y-4 border-t border-slate-200/80 pt-4 dark:border-slate-800">
+              <div className="mt-4 space-y-4 border-t border-cg-border pt-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label
                       htmlFor="tournament-search"
-                      className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+                      className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-cg-muted"
                     >
                       Cerca titolo o regista
                     </label>
                     <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-cg-muted" />
                       <input
                         id="tournament-search"
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Es. Hitchcock, Lynch, Noir..."
-                        className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none dark:border-slate-700 dark:bg-[#131722] dark:text-slate-200 dark:placeholder:text-slate-500"
+                        className="w-full rounded-lg border border-cg-border bg-cg-surface py-1.5 pl-8 pr-3 text-xs text-cg-text placeholder:text-cg-muted focus:border-cg-accent focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-cg-muted">
                       Durata massima
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -714,11 +718,12 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                           <button
                             key={preset.value}
                             type="button"
+                            aria-pressed={active}
                             onClick={() => setMaxMinutes(preset.value)}
                             className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
                               active
-                                ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
-                                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#131722] dark:text-slate-300"
+                                ? "bg-cg-accent text-cg-accent-fg"
+                                : "border border-cg-border bg-cg-surface text-cg-secondary hover:bg-cg-elevated"
                             }`}
                           >
                             {preset.label}
@@ -730,7 +735,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                 </div>
 
                 <div>
-                  <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-cg-muted">
                     Generi
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -740,13 +745,14 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                         <button
                           key={g.value}
                           type="button"
+                          aria-pressed={active}
                           onClick={() =>
                             toggleFilterCode(setGenreFilter, g.value)
                           }
                           className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
                             active
-                              ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
-                              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#131722] dark:text-slate-300"
+                              ? "bg-cg-accent text-cg-accent-fg"
+                              : "border border-cg-border bg-cg-surface text-cg-secondary hover:bg-cg-elevated"
                           }`}
                         >
                           {g.label}
@@ -757,7 +763,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                 </div>
 
                 <div>
-                  <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-cg-muted">
                     Epoche
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -767,13 +773,14 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                         <button
                           key={d.value}
                           type="button"
+                          aria-pressed={active}
                           onClick={() =>
                             toggleFilterCode(setDecadeFilter, d.value)
                           }
                           className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
                             active
-                              ? "bg-[#2563EB] text-white dark:bg-[#3B82F6]"
-                              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-[#131722] dark:text-slate-300"
+                              ? "bg-cg-accent text-cg-accent-fg"
+                              : "border border-cg-border bg-cg-surface text-cg-secondary hover:bg-cg-elevated"
                           }`}
                         >
                           {d.label}
@@ -784,12 +791,12 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                 </div>
 
                 {source !== "seen_cult" && (
-                  <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-cg-secondary">
                     <input
                       type="checkbox"
                       checked={excludeBlocked}
                       onChange={(e) => setExcludeBlocked(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-slate-300 text-[#2563EB] focus:ring-[#2563EB]"
+                      className="h-3.5 w-3.5 rounded border-cg-border-strong accent-[var(--cg-accent)]"
                     />
                     <span>
                       Escludi titoli scartati o proposti di recente in Serata
@@ -801,7 +808,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
           </div>
 
           {eligiblePool.length < 8 && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cg-warning-border bg-cg-warning-bg px-4 py-3 text-xs text-cg-warning">
               <span>
                 Nel pool filtrato ci sono solo {eligiblePool.length} film: servono almeno 8 titoli per generare i Quarti di finale (o 16 per gli Ottavi).
               </span>
@@ -809,7 +816,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                 <button
                   type="button"
                   onClick={resetPoolFilters}
-                  className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-amber-700"
+                  className="rounded-lg bg-cg-accent px-3 py-1.5 text-[11px] font-semibold text-cg-accent-fg transition-colors hover:bg-cg-accent-hover"
                 >
                   Azzera filtri torneo
                 </button>
@@ -817,9 +824,9 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/80 pt-5 dark:border-slate-800">
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <Clapperboard className="h-4 w-4 text-slate-400" />
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-cg-border pt-5">
+            <div className="flex items-center gap-2 text-xs text-cg-muted">
+              <Clapperboard className="h-4 w-4 text-cg-muted" />
               <span>{selectedFormat.steps}</span>
             </div>
 
@@ -827,7 +834,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
               type="button"
               disabled={eligiblePool.length < bracketSize}
               onClick={() => handleStartTournament(source, bracketSize)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#1D4ED8] disabled:opacity-50 whitespace-nowrap shrink-0 dark:bg-[#3B82F6] dark:hover:bg-[#60A5FA]"
+              className="inline-flex items-center gap-2 rounded-xl bg-cg-accent px-6 py-3 text-sm font-semibold text-cg-accent-fg shadow-sm transition-colors hover:bg-cg-accent-hover disabled:opacity-50 whitespace-nowrap shrink-0"
             >
               <Shuffle className="h-4 w-4" />
               <span>Sorteggia {bracketSize} film e inizia</span>
@@ -841,20 +848,20 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       {/* Top HUD Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white px-5 py-3.5 dark:border-slate-800 dark:bg-[#131722]">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cg-border bg-cg-surface px-5 py-3.5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="font-display text-lg font-bold tracking-tight text-cg-text">
             ReelRouette
           </h1>
-          <span className="text-slate-300 dark:text-slate-700" aria-hidden="true">
+          <span className="text-cg-border-strong" aria-hidden="true">
             ·
           </span>
           {phase === "VICTORY" ? (
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+            <span className="text-xs font-semibold text-cg-rating">
               Torneo completato
             </span>
           ) : activePos ? (
-            <span className="text-xs font-semibold text-[#2563EB] dark:text-[#60A5FA]">
+            <span className="text-xs font-semibold text-cg-accent-text">
               {roundNames[activePos.roundIdx]} · Sfida{" "}
               {activePos.matchIdx + 1} di {rounds[activePos.roundIdx].length}
             </span>
@@ -862,13 +869,13 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
+          <span className="mr-1 font-mono text-xs tabular-nums text-cg-muted">
             {completedCount}/{totalMatches} sfide
           </span>
 
           {/* Quick mode switcher directly in HUD */}
           <div
-            className="inline-flex rounded-lg border border-slate-200 bg-[#F5F7FA] p-0.5 dark:border-slate-700 dark:bg-[#0B0E14]"
+            className="inline-flex rounded-lg border border-cg-border bg-cg-bg p-0.5"
             role="group"
             aria-label="Modalità torneo"
           >
@@ -887,8 +894,8 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
                   }}
                   className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors whitespace-nowrap disabled:opacity-40 ${
                     active
-                      ? "bg-white text-[#2563EB] shadow-xs dark:bg-[#131722] dark:text-[#60A5FA]"
-                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                      ? "bg-cg-surface text-cg-accent-text shadow-xs"
+                      : "text-cg-muted hover:text-cg-text"
                   }`}
                 >
                   {fmt.shortLabel}
@@ -901,7 +908,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
             type="button"
             onClick={() => setSoundEnabled((v) => !v)}
             aria-label={soundEnabled ? "Disattiva audio" : "Attiva audio"}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-[#F5F7FA] px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cg-border bg-cg-bg px-3 py-1.5 text-xs font-medium text-cg-secondary transition-colors hover:bg-cg-elevated whitespace-nowrap shrink-0"
           >
             {soundEnabled ? (
               <Volume2 className="h-3.5 w-3.5" />
@@ -916,7 +923,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
           <button
             type="button"
             onClick={() => handleStartTournament(source, bracketSize)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-[#F5F7FA] px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-300 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cg-border bg-cg-bg px-3 py-1.5 text-xs font-medium text-cg-secondary transition-colors hover:bg-cg-elevated whitespace-nowrap shrink-0"
           >
             <Shuffle className="h-3.5 w-3.5" />
             <span>Nuovo sorteggio</span>
@@ -925,7 +932,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
           <button
             type="button"
             onClick={handleResetToMenu}
-            className="rounded-lg border border-slate-200 bg-[#F5F7FA] px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 whitespace-nowrap shrink-0 dark:border-slate-700 dark:bg-[#0B0E14] dark:text-slate-400 dark:hover:bg-slate-800"
+            className="rounded-lg border border-cg-border bg-cg-bg px-3 py-1.5 text-xs font-medium text-cg-muted transition-colors hover:bg-cg-elevated hover:text-cg-text whitespace-nowrap shrink-0"
           >
             Filtri e opzioni
           </button>
@@ -974,7 +981,7 @@ export const CineSfidaView: React.FC<CineSfidaViewProps> = ({
             />
 
             <div className="flex items-center justify-center py-1 md:py-0">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white font-mono text-xs font-bold text-slate-600 shadow-xs dark:border-slate-800 dark:bg-[#131722] dark:text-slate-300">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cg-border bg-cg-surface font-mono text-xs font-bold text-cg-secondary shadow-xs">
                 VS
               </div>
             </div>

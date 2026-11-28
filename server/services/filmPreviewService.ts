@@ -194,7 +194,7 @@ function extractItalianSynopsis(rawExtract: string): { text: string; hasPlot: bo
 async function fetchWikiJson(url: string): Promise<Record<string, unknown> | null> {
   try {
     const r = await fetch(url, {
-      headers: { "User-Agent": "FilmBroxd/1.0 (cinema-recommender)" },
+      headers: { "User-Agent": "Cineglyph/1.0 (cinema-recommender)" },
       signal: AbortSignal.timeout(4500),
     });
     if (!r.ok) return null;

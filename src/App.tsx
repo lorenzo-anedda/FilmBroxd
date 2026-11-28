@@ -52,6 +52,8 @@ import {
 } from "./utils/aiClient";
 import { useFilmPreviews } from "./hooks/useFilmPreviews";
 import { HeaderBar } from "./components/HeaderBar";
+import { CineglyphLogo } from "./components/CineglyphLogo";
+import { StartupReveal } from "./components/StartupReveal";
 import {
   EveningControls,
   type EveningPreset,
@@ -1212,7 +1214,8 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
   }, [allSeen]);
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] text-slate-900 dark:bg-[#0B0E14] dark:text-slate-100">
+    <div className="flex min-h-screen flex-col bg-cg-bg text-cg-text">
+      <StartupReveal dark={dark} />
       <HeaderBar
         tab={tab}
         setTab={setTab}
@@ -1221,37 +1224,45 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
         onToggleDark={() => setDark((d) => !d)}
       />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         {tab === "serata" && (
           <div className="space-y-8">
-            <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200/80 pb-6 dark:border-slate-800">
-              <div>
-                <div className="font-mono text-xs uppercase tracking-wider text-[#2563EB] dark:text-[#60A5FA]">
-                  {(() => {
-                    const now = new Date();
-                    const day = now.toLocaleDateString("it-IT", {
-                      weekday: "long",
-                    });
-                    const hr = now.getHours();
-                    const part =
-                      hr < 14
-                        ? "mattinata di cinema"
-                        : hr < 18
-                        ? "pomeriggio di cinema"
-                        : "serata cinema";
-                    return `${day.charAt(0).toUpperCase() + day.slice(1)} · ${part}`;
-                  })()}
+            <header className="flex flex-wrap items-end justify-between gap-4 border-b border-cg-border pb-6">
+              <div className="flex items-center gap-4">
+                <CineglyphLogo
+                  dark={dark}
+                  animated
+                  eager
+                  className="h-12 w-[60px] shrink-0 sm:h-14 sm:w-[70px]"
+                />
+                <div>
+                  <div className="font-mono text-xs uppercase tracking-wider text-cg-accent-text">
+                    {(() => {
+                      const now = new Date();
+                      const day = now.toLocaleDateString("it-IT", {
+                        weekday: "long",
+                      });
+                      const hr = now.getHours();
+                      const part =
+                        hr < 14
+                          ? "mattinata di cinema"
+                          : hr < 18
+                          ? "pomeriggio di cinema"
+                          : "serata cinema";
+                      return `${day.charAt(0).toUpperCase() + day.slice(1)} · ${part}`;
+                    })()}
+                  </div>
+                  <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight text-cg-text text-balance sm:text-4xl">
+                    Cosa guardiamo stasera?
+                  </h1>
                 </div>
-                <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight text-slate-900 text-balance sm:text-4xl dark:text-white">
-                  Cosa guardiamo stasera?
-                </h1>
               </div>
 
               {(selectedMoods.size > 0 ||
                 activeFilterGroups > 0 ||
                 risk !== "") && (
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
-                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-cg-muted">
+                  <span className="font-medium text-cg-secondary">
                     Criteri:
                   </span>
                   <span>
@@ -1566,6 +1577,19 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
         onClose={() => setPreviewPick(null)}
         onWatchTonight={handleWatchTonight}
       />
+
+      <footer className="border-t border-cg-border bg-cg-bg py-6">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 text-xs text-cg-muted sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2.5">
+            <span className="font-display font-semibold text-cg-text">
+              Cineglyph
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>Less scrolling. More cinema.</span>
+          </div>
+          <span>Archivio e preferenze salvati nel tuo browser</span>
+        </div>
+      </footer>
     </div>
   );
 }

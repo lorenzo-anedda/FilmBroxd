@@ -119,7 +119,7 @@ export const PosterImage: React.FC<PosterImageProps> = ({
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={dominantColor} stopOpacity="0.92" />
-            <stop offset="100%" stopColor="#090D16" stopOpacity="0.96" />
+            <stop offset="100%" stopColor="#12110F" stopOpacity="0.96" />
           </linearGradient>
         </defs>
         <rect x="0" y="0" width="100" height="150" fill={`url(#${gradId})`} />

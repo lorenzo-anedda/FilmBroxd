@@ -11,7 +11,7 @@ const CINEMA_PALETTE = [
   "#3B2F4A", // Plum dusk
   "#27403B", // Deep emerald film
   "#523528", // Warm sepia
-  "#2C3545", // Cool slate
+  "#352D26", // Warm charcoal film
   "#4A2530", // Velvet crimson
   "#1E424D", // Teal cinema
   "#3F3728", // Amber darkroom
