@@ -372,12 +372,42 @@ async function runTests() {
     })
   );
   assert.ok(libraryHtml.includes("Library"));
+  assert.ok(libraryHtml.includes("grid-cols-4 gap-1.5 sm:gap-4"));
   assert.ok(libraryHtml.includes(`Visualizzati`));
   assert.ok(
     libraryHtml.includes(`Carica altri ${LIBRARY_PAGE_SIZE} (rimanenti: ${80 - LIBRARY_PAGE_SIZE})`)
   );
   assert.ok(libraryHtml.includes("Archive Movie 36"));
   assert.equal(libraryHtml.includes("Archive Movie 37"), false);
+
+  const watchedGridCardHtml = renderToStaticMarkup(
+    React.createElement(LibraryFilmCard, {
+      entry: susp1977,
+      mode: "grid",
+      scaleMax: 5,
+      onVisible: () => {},
+      onSelect: () => {},
+    })
+  );
+  assert.ok(watchedGridCardHtml.includes('aria-label="Suspiria · 1977 · Valutazione 4.5/5"'));
+  assert.ok(watchedGridCardHtml.includes("hidden sm:flex"));
+  assert.ok(watchedGridCardHtml.includes("sm:hidden"));
+  assert.ok(watchedGridCardHtml.includes("4.5/5"));
+
+  const watchlistGridCardHtml = renderToStaticMarkup(
+    React.createElement(LibraryFilmCard, {
+      entry: conformist,
+      mode: "grid",
+      scaleMax: 5,
+      onVisible: () => {},
+      onSelect: () => {},
+    })
+  );
+  assert.ok(
+    watchlistGridCardHtml.includes('aria-label="Il conformista · The Conformist · 1970"')
+  );
+  assert.ok(watchlistGridCardHtml.includes("hidden sm:flex"));
+  assert.equal(watchlistGridCardHtml.includes("sm:hidden"), false);
 
   const listCardHtml = renderToStaticMarkup(
     React.createElement(LibraryFilmCard, {

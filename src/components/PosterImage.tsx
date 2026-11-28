@@ -129,22 +129,22 @@ export const PosterImage: React.FC<PosterImageProps> = ({
       {showPlaceholderOverlay && (
         <div
           className={`relative z-10 flex h-full w-full flex-col items-center justify-between text-center text-white/90 ${
-            compactFallback ? "p-2" : "p-3.5"
+            compactFallback ? "p-2" : "p-2 sm:p-3.5"
           }`}
         >
-          <span className="font-mono text-[10px] uppercase tracking-wider text-white/75">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-white/75 sm:text-[10px]">
             {year || "Film"}
           </span>
           <Film
             className={`${
-              compactFallback ? "h-5 w-5" : "h-7 w-7"
+              compactFallback ? "h-5 w-5" : "h-5 w-5 sm:h-7 sm:w-7"
             } text-white/75`}
           />
           <span
             className={`font-display font-semibold leading-tight text-white/90 ${
               compactFallback
                 ? "line-clamp-2 text-[10px]"
-                : "line-clamp-3 text-xs"
+                : "line-clamp-3 text-[10px] sm:text-xs"
             }`}
           >
             {loading || (effectiveUrl && !imgLoaded) ? "Carico…" : title}

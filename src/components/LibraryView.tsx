@@ -128,17 +128,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     collection.watchlist.length + collection.watched.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-cg-border pb-6">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-cg-border pb-4 sm:gap-4 sm:pb-6">
         <div>
           <div className="font-mono text-xs uppercase tracking-wider text-cg-accent-text">
             Collezione personale
           </div>
-          <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight text-cg-text text-balance sm:text-4xl">
+          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-cg-text text-balance sm:mt-1.5 sm:text-4xl">
             Library
           </h1>
-          <p className="mt-1.5 max-w-2xl text-sm text-cg-muted">
+          <p className="mt-1 max-w-2xl text-xs text-cg-muted sm:mt-1.5 sm:text-sm">
             Esplora tutti i film in Watchlist e i titoli già visti, con ricerca
             istantanea, filtri combinabili e schede dettaglio.
           </p>
@@ -232,7 +232,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           )}
         </div>
       ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
           {visibleItems.map((entry) => (
             <LibraryFilmCard
               key={entry.id}

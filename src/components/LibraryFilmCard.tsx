@@ -118,10 +118,20 @@ export const LibraryFilmCard: React.FC<LibraryFilmCardProps> = React.memo(
       );
     }
 
+    const accessibleLabel = [
+      entry.title,
+      showOriginal ? entry.originalTitle : "",
+      entry.year,
+      ratingText ? `Valutazione ${ratingText}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
     return (
       <button
         type="button"
         onClick={() => onSelect(entry)}
+        aria-label={accessibleLabel}
         title={
           showOriginal
             ? `${entry.title} — ${entry.originalTitle}${
@@ -129,9 +139,9 @@ export const LibraryFilmCard: React.FC<LibraryFilmCardProps> = React.memo(
               }`
             : `${entry.title}${entry.year ? ` (${entry.year})` : ""}`
         }
-        className="group flex flex-col overflow-hidden rounded-xl border border-cg-border bg-cg-surface text-left transition-colors hover:border-cg-border-strong"
+        className="group flex flex-col overflow-hidden rounded-lg border border-cg-border bg-cg-surface text-left transition-colors hover:border-cg-border-strong sm:rounded-xl"
       >
-        <div className="relative aspect-[2/3] w-full overflow-hidden bg-cg-elevated">
+        <div className="relative aspect-[2/3] w-full shrink-0 overflow-hidden bg-cg-elevated">
           <PosterImage
             cacheKey={entry.key}
             title={entry.title}
@@ -145,7 +155,16 @@ export const LibraryFilmCard: React.FC<LibraryFilmCardProps> = React.memo(
           />
         </div>
 
-        <div className="flex flex-1 flex-col justify-between gap-1.5 p-2.5 sm:p-3">
+        {/* Compact mobile rating strip for Watched cards (when available) */}
+        {ratingText && (
+          <div className="flex items-center justify-center gap-0.5 border-t border-cg-border/60 bg-cg-surface px-1 py-1 font-mono text-[10px] font-semibold leading-none tabular-nums text-cg-rating sm:hidden">
+            <Star className="h-2.5 w-2.5 shrink-0 fill-current" aria-hidden="true" />
+            <span>{ratingText}</span>
+          </div>
+        )}
+
+        {/* Desktop & tablet card footer (hidden on smartphone for compact poster grid) */}
+        <div className="hidden sm:flex sm:flex-1 sm:flex-col sm:justify-between sm:gap-1.5 sm:p-3">
           <div className="line-clamp-2 font-display text-sm font-semibold leading-snug text-cg-text transition-colors group-hover:text-cg-accent-text">
             {entry.title}
           </div>

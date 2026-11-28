@@ -1227,8 +1227,10 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
       />
 
       <main
-        className={`mx-auto w-full flex-1 px-4 py-8 sm:px-6 lg:px-8 lg:py-10 ${
-          tab === "library" ? "max-w-screen-2xl" : "max-w-6xl"
+        className={`mx-auto w-full flex-1 ${
+          tab === "library"
+            ? "max-w-screen-2xl px-2 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10"
+            : "max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10"
         }`}
       >
         {tab === "serata" && (
@@ -1396,7 +1398,7 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
               <div className="space-y-6">
                 <div className="h-20 w-64 rounded-xl bg-cg-surface motion-safe:animate-pulse" />
                 <div className="h-28 w-full rounded-2xl bg-cg-surface motion-safe:animate-pulse" />
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+                <div className="grid grid-cols-4 gap-1.5 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
                   {Array.from({ length: 12 }).map((_, i) => (
                     <div
                       key={i}

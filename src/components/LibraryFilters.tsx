@@ -59,7 +59,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
   };
 
   const selectClass =
-    "h-9 w-full rounded-lg border border-cg-border bg-cg-bg px-2.5 text-xs text-cg-text transition-colors hover:border-cg-border-strong";
+    "h-8 w-full rounded-lg border border-cg-border bg-cg-bg px-2 text-xs text-cg-text transition-colors hover:border-cg-border-strong sm:h-9 sm:px-2.5";
 
   const ratingOptions: Array<{ value: LibraryRatingFilter; label: string }> =
     scaleMax === 10
@@ -87,22 +87,22 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
   return (
     <section
       aria-label="Controlli Library"
-      className="space-y-4 rounded-2xl border border-cg-border bg-cg-surface p-4 sm:p-5"
+      className="space-y-2.5 rounded-xl border border-cg-border bg-cg-surface p-2.5 sm:space-y-4 sm:rounded-2xl sm:p-5"
     >
       {/* Top row: Watchlist/Watched segmented tabs + Search + Sort + View switcher */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2 sm:gap-3 lg:flex-row lg:items-center lg:justify-between">
         {/* Segmented tab control */}
         <div
           role="tablist"
           aria-label="Sezione collezione"
-          className="inline-flex w-full items-center gap-1 rounded-xl border border-cg-border bg-cg-bg p-1 sm:w-auto"
+          className="inline-flex w-full items-center gap-1 rounded-lg border border-cg-border bg-cg-bg p-0.5 sm:w-auto sm:rounded-xl sm:p-1"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === "watchlist"}
             onClick={() => onChangeTab("watchlist")}
-            className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 sm:flex-initial ${
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 sm:flex-initial sm:rounded-lg sm:px-4 sm:py-2 ${
               activeTab === "watchlist"
                 ? "bg-cg-accent text-cg-accent-fg"
                 : "text-cg-secondary hover:bg-cg-elevated hover:text-cg-text"
@@ -118,7 +118,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
             role="tab"
             aria-selected={activeTab === "watched"}
             onClick={() => onChangeTab("watched")}
-            className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 sm:flex-initial ${
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 sm:flex-initial sm:rounded-lg sm:px-4 sm:py-2 ${
               activeTab === "watched"
                 ? "bg-cg-accent text-cg-accent-fg"
                 : "text-cg-secondary hover:bg-cg-elevated hover:text-cg-text"
@@ -132,10 +132,10 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
         </div>
 
         {/* Search + Sort + Filter toggle + Grid/List mode */}
-        <div className="flex flex-1 flex-wrap items-center gap-2.5 lg:justify-end">
-          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5 lg:justify-end">
+          <div className="relative w-full sm:min-w-[200px] sm:max-w-xs sm:flex-1">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-cg-muted"
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-cg-muted sm:left-3"
               aria-hidden="true"
             />
             <label htmlFor="library-search" className="sr-only">
@@ -147,7 +147,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
               value={filters.search}
               onChange={(e) => updateField("search", e.target.value)}
               placeholder="Cerca titolo originale o italiano…"
-              className="h-9 w-full rounded-lg border border-cg-border bg-cg-bg pl-8 pr-8 text-xs text-cg-text placeholder:text-cg-muted transition-colors hover:border-cg-border-strong"
+              className="h-8 w-full rounded-lg border border-cg-border bg-cg-bg pl-8 pr-8 text-xs text-cg-text placeholder:text-cg-muted transition-colors hover:border-cg-border-strong sm:h-9"
             />
             {filters.search && (
               <button
@@ -161,7 +161,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <label htmlFor="library-sort" className="sr-only">
               Ordina film
             </label>
@@ -169,7 +169,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
               id="library-sort"
               value={sortKey}
               onChange={(e) => onChangeSortKey(e.target.value as LibrarySortKey)}
-              className="h-9 rounded-lg border border-cg-border bg-cg-bg px-2.5 text-xs font-medium text-cg-text transition-colors hover:border-cg-border-strong"
+              className="h-8 min-w-0 flex-1 rounded-lg border border-cg-border bg-cg-bg px-2 text-xs font-medium text-cg-text transition-colors hover:border-cg-border-strong sm:h-9 sm:flex-initial sm:px-2.5"
             >
               <option value="title-asc">Titolo A–Z</option>
               <option value="title-desc">Titolo Z–A</option>
@@ -189,7 +189,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
               type="button"
               onClick={onToggleFiltersExpanded}
               aria-expanded={filtersExpanded}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+              className={`inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 sm:h-9 sm:gap-1.5 sm:px-3 ${
                 filtersExpanded || activeFilterCount > 0
                   ? "border-cg-accent/50 bg-cg-accent-soft text-cg-accent-text"
                   : "border-cg-border bg-cg-bg text-cg-secondary hover:border-cg-border-strong hover:text-cg-text"
@@ -207,14 +207,14 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
             <div
               role="group"
               aria-label="Modalità visualizzazione"
-              className="inline-flex h-9 items-center rounded-lg border border-cg-border bg-cg-bg p-0.5 shrink-0"
+              className="inline-flex h-8 items-center rounded-lg border border-cg-border bg-cg-bg p-0.5 shrink-0 sm:h-9"
             >
               <button
                 type="button"
                 onClick={() => onChangeViewMode("grid")}
                 aria-pressed={viewMode === "grid"}
                 aria-label="Vista griglia"
-                className={`inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                className={`inline-flex h-6.5 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0 sm:h-7 sm:px-2.5 ${
                   viewMode === "grid"
                     ? "bg-cg-elevated text-cg-text"
                     : "text-cg-muted hover:text-cg-text"
@@ -228,7 +228,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
                 onClick={() => onChangeViewMode("list")}
                 aria-pressed={viewMode === "list"}
                 aria-label="Vista elenco"
-                className={`inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                className={`inline-flex h-6.5 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors whitespace-nowrap shrink-0 sm:h-7 sm:px-2.5 ${
                   viewMode === "list"
                     ? "bg-cg-elevated text-cg-text"
                     : "text-cg-muted hover:text-cg-text"
@@ -245,7 +245,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
       {/* Expandable combinable metadata filters */}
       {filtersExpanded && (
         <div
-          className={`grid grid-cols-1 gap-2.5 border-t border-cg-border pt-3.5 sm:grid-cols-2 lg:grid-cols-3 ${
+          className={`grid grid-cols-2 gap-2 border-t border-cg-border pt-2.5 sm:gap-2.5 sm:pt-3.5 lg:grid-cols-3 ${
             activeTab === "watched" ? "xl:grid-cols-6" : "xl:grid-cols-5"
           }`}
         >
@@ -412,7 +412,7 @@ export const LibraryFilters: React.FC<LibraryFiltersProps> = ({
       )}
 
       {/* Results summary & reset */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-cg-border pt-3 text-xs text-cg-muted">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-cg-border pt-2 text-xs text-cg-muted sm:pt-3">
         <div className="font-mono tabular-nums">
           {filteredCount === totalInTabCount ? (
             <span>
