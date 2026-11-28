@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { TITLE_RULES } from "./constants/filters";
 import {
   canonicalFilmIdentity,
@@ -64,6 +64,8 @@ import { CineSfidaView } from "./components/CineSfidaView";
 import { HistoryView } from "./components/HistoryView";
 import { ProfileView } from "./components/ProfileView";
 import { ArchiveView } from "./components/ArchiveView";
+
+const LibraryView = lazy(() => import("./components/LibraryView"));
 import type {
   ActivePick,
   ActiveTab,
@@ -1224,7 +1226,11 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
         onToggleDark={() => setDark((d) => !d)}
       />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <main
+        className={`mx-auto w-full flex-1 px-4 py-8 sm:px-6 lg:px-8 lg:py-10 ${
+          tab === "library" ? "max-w-screen-2xl" : "max-w-6xl"
+        }`}
+      >
         {tab === "serata" && (
           <div className="space-y-8">
             <header className="flex flex-wrap items-end justify-between gap-4 border-b border-cg-border pb-6">
@@ -1382,6 +1388,31 @@ Rispondi SOLO con un oggetto JSON: {"film":"Titolo (Anno)","durata":"es. 112 min
               }))
             }
           />
+        )}
+
+        {tab === "library" && (
+          <Suspense
+            fallback={
+              <div className="space-y-6">
+                <div className="h-20 w-64 rounded-xl bg-cg-surface motion-safe:animate-pulse" />
+                <div className="h-28 w-full rounded-2xl bg-cg-surface motion-safe:animate-pulse" />
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="aspect-[2/3] rounded-xl bg-cg-surface motion-safe:animate-pulse"
+                    />
+                  ))}
+                </div>
+              </div>
+            }
+          >
+            <LibraryView
+              fullWatchlist={fullWatchlist}
+              allSeen={allSeen}
+              meta={lib.meta}
+            />
+          </Suspense>
         )}
 
         {tab === "cronologia" && (

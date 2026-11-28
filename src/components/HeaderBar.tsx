@@ -21,6 +21,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const navItems: Array<[ActiveTab, string]> = [
     ["serata", "Serata"],
     ["cinesfida", "ReelRouette"],
+    ["library", "Library"],
     [
       "cronologia",
       tonightCount > 0 ? `Cronologia · ${tonightCount}` : "Cronologia",
@@ -49,7 +50,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
         <nav
           aria-label="Navigazione principale"
-          className="hidden items-center gap-7 md:flex"
+          className="hidden items-center gap-5 md:flex lg:gap-7"
         >
           {navItems.map(([key, label]) => {
             const active = tab === key;

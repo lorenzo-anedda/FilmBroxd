@@ -119,7 +119,13 @@ export interface FilmPreviewData {
   loading?: boolean;
 }
 
-export type ActiveTab = "serata" | "cinesfida" | "cronologia" | "profilo" | "archivio";
+export type ActiveTab =
+  | "serata"
+  | "cinesfida"
+  | "library"
+  | "cronologia"
+  | "profilo"
+  | "archivio";
 export type RiskMode = "" | "safe" | "bold";
 export type EngineMode = "ai" | "local";
 
